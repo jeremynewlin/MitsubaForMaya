@@ -2,27 +2,30 @@ import sys
 import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
 
-kPluginNodeName = "MitsubaDiffuseShader"
+kPluginNodeName = "MitsubaDielectricShader"
 kPluginNodeClassify = "shader/surface"
-kPluginNodeId = OpenMaya.MTypeId(0x8700E)
+kPluginNodeId = OpenMaya.MTypeId(0x8701E)
 
-class diffuse(OpenMayaMPx.MPxNode):
+class dielectric(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
                 mOutColor = OpenMaya.MObject()
                 mReflectance = OpenMaya.MObject()
+                mTransmittance = OpenMaya.MObject()
+                mIntIOR = OpenMaya.MObject()
+                mExtIOR = OpenMaya.MObject()
 
         def compute(self, plug, block):
-                if plug == diffuse.mOutColor or plug.parent() == diffuse.mOutColor:
+                if plug == dielectric.mOutColor or plug.parent() == dielectric.mOutColor:
                         resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
                         
-                        color = block.inputValue( diffuse.mReflectance ).asFloatVector()
+                        color = block.inputValue( dielectric.mReflectance ).asFloatVector()
 
                         resultColor.x = color.x
                         resultColor.y = color.y
                         resultColor.z = color.z
 
-                        outColorHandle = block.outputValue( diffuse.mOutColor )
+                        outColorHandle = block.outputValue( dielectric.mOutColor )
                         outColorHandle.setMFloatVector(resultColor)
                         outColorHandle.setClean()
                 else:
@@ -30,19 +33,39 @@ class diffuse(OpenMayaMPx.MPxNode):
 
 
 def nodeCreator():
-        return diffuse()
+        return dielectric()
 
 def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
 
         try:
-                diffuse.mReflectance = nAttr.createColor("reflectance", "r")
+                dielectric.mReflectance = nAttr.createColor("reflectance", "r")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
 
-                diffuse.mOutColor = nAttr.createColor("outColor", "oc")
+                dielectric.mTransmittance = nAttr.createColor("transmittance","t")
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
+
+                status = OpenMaya.MStatus()
+
+                dielectric.mIntIOR = nAttr.create("InteriorIOR","iior", OpenMaya.MFnNumericData.kFloat, 1.0)
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
+
+                dielectric.mExtIOR = nAttr.create("ExteriorIOR","eior", OpenMaya.MFnNumericData.kFloat, 1.3)
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
+
+                dielectric.mOutColor = nAttr.createColor("outColor", "oc")
                 nAttr.setStorable(0)
                 nAttr.setHidden(0)
                 nAttr.setReadable(1)
@@ -53,14 +76,17 @@ def nodeInitializer():
                 raise
 
         try:
-                diffuse.addAttribute(diffuse.mReflectance)
-                diffuse.addAttribute(diffuse.mOutColor)
+                dielectric.addAttribute(dielectric.mReflectance)
+                dielectric.addAttribute(dielectric.mTransmittance)
+                dielectric.addAttribute(dielectric.mIntIOR)
+                dielectric.addAttribute(dielectric.mExtIOR)
+                dielectric.addAttribute(dielectric.mOutColor)
         except:
                 sys.stderr.write("Failed to add attributes\n")
                 raise
 
         try:
-                diffuse.attributeAffects (diffuse.mReflectance, diffuse.mOutColor)
+                dielectric.attributeAffects (dielectric.mReflectance, dielectric.mOutColor)
         except:
                 sys.stderr.write("Failed in setting attributeAffects\n")
                 raise
