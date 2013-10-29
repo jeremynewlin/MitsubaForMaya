@@ -3,80 +3,80 @@ import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
 import maya.cmds as cmds
 
-kPluginNodeName = "MitsubaDielectricShader"
+kPluginNodeName = "MitsubaWardShader"
 kPluginNodeClassify = "/shader/surface"
-kPluginNodeId = OpenMaya.MTypeId(0x87004)
+kPluginNodeId = OpenMaya.MTypeId(0x8700C)
 
-class dielectric(OpenMayaMPx.MPxNode):
+class ward(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
-                mReflectance = OpenMaya.MObject()
-                mTransmittance = OpenMaya.MObject()
-                mIntIOR = OpenMaya.MObject()
-                mExtIOR = OpenMaya.MObject()
+                mSpecular = OpenMaya.MObject()
+                mDiffuse = OpenMaya.MObject()
+
+                mVariant = OpenMaya.MObject()
+                mAlphaUV = OpenMaya.MObject()
 
                 mOutColor = OpenMaya.MObject()
-                mOutTransparency = OpenMaya.MObject()
 
         def compute(self, plug, block):
-                if plug == dielectric.mOutColor:
-                        print "out color"
+                if plug == ward.mOutColor:
                         resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
                         
-                        color = block.inputValue( dielectric.mReflectance ).asFloatVector()
+                        color = block.inputValue( ward.mDiffuse ).asFloatVector()
+                        resultColor.x=color.x
+                        resultColor.y=color.y
+                        resultColor.z=color.z
 
-                        outColorHandle = block.outputValue( dielectric.mOutColor )
+                        outColorHandle = block.outputValue( ward.mOutColor )
                         outColorHandle.setMFloatVector(resultColor)
                         outColorHandle.setClean()
-                elif plug == dielectric.mOutTransparency:
-                        outTransHandle = block.outputValue( dielectric.mOutTransparency )
-                        outTransHandle.setMFloatVector(OpenMaya.MFloatVector(0.75,0.75,0.75))
-                        outTransHandle.setClean()
                 else:
                         return OpenMaya.kUnknownParameter
 
 
 def nodeCreator():
-        return dielectric()
+        return ward()
 
 def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
+        eAttr = OpenMaya.MFnEnumAttribute()
 
         try:
 
-                dielectric.mReflectance = nAttr.createColor("reflectance", "r")
+                ward.mVariant = eAttr.create("variant", "var")
+                eAttr.setKeyable(1) 
+                eAttr.setStorable(1)
+                eAttr.setReadable(1)
+                eAttr.setWritable(1)
+
+                eAttr.addField("ward", 0)
+                eAttr.addField("ward-duer", 1)
+                eAttr.addField("balanced", 2)
+
+                ward.mAlpaUV = nAttr.create("alphaUV","uv", OpenMaya.MFnNumericData.k2Float)
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
-                nAttr.setDefault(1.0,1.0,1.0)
+                nAttr.setDefault(0.1,0.1)
 
-                dielectric.mTransmittance = nAttr.createColor("transmittance","t")
+                ward.mSpecular = nAttr.createColor("specularReflectance", "sr")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
-                nAttr.setDefault(1.0,1.0,1.0)
+                nAttr.setDefault(0.2,0.2,0.2)
 
-                dielectric.mIntIOR = nAttr.create("InteriorIOR","iior", OpenMaya.MFnNumericData.kFloat, 1.0)
+                ward.mDiffuse = nAttr.createColor("diffuseReflectance","dr")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
+                nAttr.setDefault(.5,.5,.5)
 
-                dielectric.mExtIOR = nAttr.create("ExteriorIOR","eior", OpenMaya.MFnNumericData.kFloat, 1.3)
-                nAttr.setKeyable(1) 
-                nAttr.setStorable(1)
-                nAttr.setReadable(1)
-                nAttr.setWritable(1)
 
-                dielectric.mOutColor = nAttr.createColor("outColor", "oc")
-                nAttr.setStorable(0)
-                nAttr.setHidden(0)
-                nAttr.setReadable(1)
-                nAttr.setWritable(0)
 
-                dielectric.mOutTransparency = nAttr.createColor("outTransparency", "op")
+                ward.mOutColor = nAttr.createColor("outColor", "oc")
                 nAttr.setStorable(0)
                 nAttr.setHidden(0)
                 nAttr.setReadable(1)
@@ -87,18 +87,17 @@ def nodeInitializer():
                 raise
 
         try:
-                dielectric.addAttribute(dielectric.mReflectance)
-                dielectric.addAttribute(dielectric.mTransmittance)
-                dielectric.addAttribute(dielectric.mIntIOR)
-                dielectric.addAttribute(dielectric.mExtIOR)
-                dielectric.addAttribute(dielectric.mOutColor)
-                dielectric.addAttribute(dielectric.mOutTransparency)
+                ward.addAttribute(ward.mVariant)
+                ward.addAttribute(ward.mAlpaUV)
+                ward.addAttribute(ward.mSpecular)
+                ward.addAttribute(ward.mDiffuse)
+                ward.addAttribute(ward.mOutColor)
         except:
                 sys.stderr.write("Failed to add attributes\n")
                 raise
 
         try:
-                dielectric.attributeAffects (dielectric.mTransmittance, dielectric.mOutTransparency)
+                ward.attributeAffects (ward.mDiffuse, ward.mOutColor)
         except:
                 sys.stderr.write("Failed in setting attributeAffects\n")
                 raise

@@ -118,6 +118,26 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
         else:
             cmds.select(cl=True)
 
+def render(self):
+    global renderSettings
+    if not cmds.window(renderSettings, query=True, exists=True):
+        renderSettings = cmds.window(title="Mitsuba Render Settings", iconName="MTS", widthHeight=(750,1000))
+    cmds.showWindow(renderSettings)
+    #cmds.mitsuba()
+
+def gui():
+    print "gui god"
+    global topLevel
+    topLevel = cmds.menu( l="Mitsuba", p="MayaWindow", to=True)
+    item = cmds.menuItem( p=topLevel, label='Render', c=render )
+    global renderSettings
+    renderSettings = cmds.window(title="Mitsuba Render Settings", iconName="MTS", widthHeight=(750,1000))
+
+def deletegui():
+    cmds.deleteUI( topLevel )
+    if cmds.window(renderSettings, query=True, exists=True):
+        cmds.deleteUI( renderSettings )
+
 # Creator
 def cmdCreator():
     return OpenMayaMPx.asMPxPtr( mitsubaForMaya() )
@@ -127,6 +147,7 @@ def initializePlugin(mobject):
     mplugin = OpenMayaMPx.MFnPlugin(mobject)
     cmds.loadPlugin("diffuse.py")
     cmds.loadPlugin("dielectric.py")
+    gui()
     try:
         mplugin.registerCommand( kPluginCmdName, cmdCreator )
     except:
@@ -138,6 +159,7 @@ def uninitializePlugin(mobject):
     mplugin = OpenMayaMPx.MFnPlugin(mobject)
     cmds.unloadPlugin("diffuse.py")
     cmds.unloadPlugin("dielectric.py")
+    deletegui()
     try:
         mplugin.deregisterCommand( kPluginCmdName )
     except:

@@ -2,7 +2,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 
 kPluginNodeName = "MitsubaForMaya"
-kPluginNodeId = OpenMaya.MTypeId(0x8700F)
+kPluginNodeId = OpenMaya.MTypeId(0x87007)
 
 def getShader(geom):
     shapeNode = cmds.listRelatives(geom, children=True, shapes=True)[0]

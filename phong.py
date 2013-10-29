@@ -3,80 +3,64 @@ import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
 import maya.cmds as cmds
 
-kPluginNodeName = "MitsubaDielectricShader"
+kPluginNodeName = "MitsubaPhongShader"
 kPluginNodeClassify = "/shader/surface"
-kPluginNodeId = OpenMaya.MTypeId(0x87004)
+kPluginNodeId = OpenMaya.MTypeId(0x8700B)
 
-class dielectric(OpenMayaMPx.MPxNode):
+class phong(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
-                mReflectance = OpenMaya.MObject()
-                mTransmittance = OpenMaya.MObject()
-                mIntIOR = OpenMaya.MObject()
-                mExtIOR = OpenMaya.MObject()
+                mSpecular = OpenMaya.MObject()
+                mDiffuse = OpenMaya.MObject()
+                mExponent = OpenMaya.MObject()
 
                 mOutColor = OpenMaya.MObject()
-                mOutTransparency = OpenMaya.MObject()
 
         def compute(self, plug, block):
-                if plug == dielectric.mOutColor:
-                        print "out color"
+                if plug == phong.mOutColor:
                         resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
                         
-                        color = block.inputValue( dielectric.mReflectance ).asFloatVector()
+                        color = block.inputValue( phong.mDiffuse ).asFloatVector()
+                        resultColor.x=color.x
+                        resultColor.y=color.y
+                        resultColor.z=color.z
 
-                        outColorHandle = block.outputValue( dielectric.mOutColor )
+                        outColorHandle = block.outputValue( phong.mOutColor )
                         outColorHandle.setMFloatVector(resultColor)
                         outColorHandle.setClean()
-                elif plug == dielectric.mOutTransparency:
-                        outTransHandle = block.outputValue( dielectric.mOutTransparency )
-                        outTransHandle.setMFloatVector(OpenMaya.MFloatVector(0.75,0.75,0.75))
-                        outTransHandle.setClean()
                 else:
                         return OpenMaya.kUnknownParameter
 
 
 def nodeCreator():
-        return dielectric()
+        return phong()
 
 def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
 
         try:
 
-                dielectric.mReflectance = nAttr.createColor("reflectance", "r")
+                phong.mSpecular = nAttr.createColor("specularReflectance", "sr")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
-                nAttr.setDefault(1.0,1.0,1.0)
+                nAttr.setDefault(0.2,0.2,0.2)
 
-                dielectric.mTransmittance = nAttr.createColor("transmittance","t")
+                phong.mDiffuse = nAttr.createColor("diffuseReflectance","dr")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
-                nAttr.setDefault(1.0,1.0,1.0)
+                nAttr.setDefault(.5,.5,.5)
 
-                dielectric.mIntIOR = nAttr.create("InteriorIOR","iior", OpenMaya.MFnNumericData.kFloat, 1.0)
-                nAttr.setKeyable(1) 
-                nAttr.setStorable(1)
-                nAttr.setReadable(1)
-                nAttr.setWritable(1)
-
-                dielectric.mExtIOR = nAttr.create("ExteriorIOR","eior", OpenMaya.MFnNumericData.kFloat, 1.3)
+                phong.mExponent = nAttr.create("exponent","exp", OpenMaya.MFnNumericData.kFloat, 30.0)
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
 
-                dielectric.mOutColor = nAttr.createColor("outColor", "oc")
-                nAttr.setStorable(0)
-                nAttr.setHidden(0)
-                nAttr.setReadable(1)
-                nAttr.setWritable(0)
-
-                dielectric.mOutTransparency = nAttr.createColor("outTransparency", "op")
+                phong.mOutColor = nAttr.createColor("outColor", "oc")
                 nAttr.setStorable(0)
                 nAttr.setHidden(0)
                 nAttr.setReadable(1)
@@ -87,18 +71,16 @@ def nodeInitializer():
                 raise
 
         try:
-                dielectric.addAttribute(dielectric.mReflectance)
-                dielectric.addAttribute(dielectric.mTransmittance)
-                dielectric.addAttribute(dielectric.mIntIOR)
-                dielectric.addAttribute(dielectric.mExtIOR)
-                dielectric.addAttribute(dielectric.mOutColor)
-                dielectric.addAttribute(dielectric.mOutTransparency)
+                phong.addAttribute(phong.mSpecular)
+                phong.addAttribute(phong.mDiffuse)
+                phong.addAttribute(phong.mExponent)
+                phong.addAttribute(phong.mOutColor)
         except:
                 sys.stderr.write("Failed to add attributes\n")
                 raise
 
         try:
-                dielectric.attributeAffects (dielectric.mTransmittance, dielectric.mOutTransparency)
+                phong.attributeAffects (phong.mDiffuse, phong.mOutColor)
         except:
                 sys.stderr.write("Failed in setting attributeAffects\n")
                 raise

@@ -2,27 +2,27 @@ import sys
 import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
 
-kPluginNodeName = "MitsubaDiffuseShader"
+kPluginNodeName = "MitsubaDiffuseTransmitterShader"
 kPluginNodeClassify = "shader/surface"
-kPluginNodeId = OpenMaya.MTypeId(0x87003)
+kPluginNodeId = OpenMaya.MTypeId(0x8700D)
 
-class diffuse(OpenMayaMPx.MPxNode):
+class difftrans(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
                 mOutColor = OpenMaya.MObject()
                 mReflectance = OpenMaya.MObject()
 
         def compute(self, plug, block):
-                if plug == diffuse.mOutColor or plug.parent() == diffuse.mOutColor:
+                if plug == difftrans.mOutColor or plug.parent() == difftrans.mOutColor:
                         resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
                         
-                        color = block.inputValue( diffuse.mReflectance ).asFloatVector()
+                        color = block.inputValue( difftrans.mReflectance ).asFloatVector()
 
                         resultColor.x = color.x
                         resultColor.y = color.y
                         resultColor.z = color.z
 
-                        outColorHandle = block.outputValue( diffuse.mOutColor )
+                        outColorHandle = block.outputValue( difftrans.mOutColor )
                         outColorHandle.setMFloatVector(resultColor)
                         outColorHandle.setClean()
                 else:
@@ -30,19 +30,20 @@ class diffuse(OpenMayaMPx.MPxNode):
 
 
 def nodeCreator():
-        return diffuse()
+        return difftrans()
 
 def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
 
         try:
-                diffuse.mReflectance = nAttr.createColor("reflectance", "r")
+                difftrans.mReflectance = nAttr.createColor("reflectance", "r")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
+                nAttr.setDefault(.5,.5,.5)
 
-                diffuse.mOutColor = nAttr.createColor("outColor", "oc")
+                difftrans.mOutColor = nAttr.createColor("outColor", "oc")
                 nAttr.setStorable(0)
                 nAttr.setHidden(0)
                 nAttr.setReadable(1)
@@ -53,14 +54,14 @@ def nodeInitializer():
                 raise
 
         try:
-                diffuse.addAttribute(diffuse.mReflectance)
-                diffuse.addAttribute(diffuse.mOutColor)
+                difftrans.addAttribute(difftrans.mReflectance)
+                difftrans.addAttribute(difftrans.mOutColor)
         except:
                 sys.stderr.write("Failed to add attributes\n")
                 raise
 
         try:
-                diffuse.attributeAffects (diffuse.mReflectance, diffuse.mOutColor)
+                difftrans.attributeAffects (difftrans.mReflectance, difftrans.mOutColor)
         except:
                 sys.stderr.write("Failed in setting attributeAffects\n")
                 raise

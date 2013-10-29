@@ -3,102 +3,93 @@ import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
 import maya.cmds as cmds
 
-kPluginNodeName = "MitsubaDielectricShader"
+kPluginNodeName = "MitsubaPlasticShader"
 kPluginNodeClassify = "/shader/surface"
-kPluginNodeId = OpenMaya.MTypeId(0x87004)
+kPluginNodeId = OpenMaya.MTypeId(0x87006)
 
-class dielectric(OpenMayaMPx.MPxNode):
+class plastic(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
-                mReflectance = OpenMaya.MObject()
-                mTransmittance = OpenMaya.MObject()
+                mSpecular = OpenMaya.MObject()
+                mDiffuse = OpenMaya.MObject()
                 mIntIOR = OpenMaya.MObject()
                 mExtIOR = OpenMaya.MObject()
 
                 mOutColor = OpenMaya.MObject()
-                mOutTransparency = OpenMaya.MObject()
 
         def compute(self, plug, block):
-                if plug == dielectric.mOutColor:
-                        print "out color"
+                if plug == plastic.mOutColor:
                         resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
                         
-                        color = block.inputValue( dielectric.mReflectance ).asFloatVector()
+                        color = block.inputValue( plastic.mDiffuse ).asFloatVector()
+                        resultColor.x=color.x
+                        resultColor.y=color.y
+                        resultColor.z=color.z
 
-                        outColorHandle = block.outputValue( dielectric.mOutColor )
+                        outColorHandle = block.outputValue( plastic.mOutColor )
                         outColorHandle.setMFloatVector(resultColor)
                         outColorHandle.setClean()
-                elif plug == dielectric.mOutTransparency:
-                        outTransHandle = block.outputValue( dielectric.mOutTransparency )
-                        outTransHandle.setMFloatVector(OpenMaya.MFloatVector(0.75,0.75,0.75))
-                        outTransHandle.setClean()
                 else:
                         return OpenMaya.kUnknownParameter
 
 
 def nodeCreator():
-        return dielectric()
+        return plastic()
 
 def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
 
         try:
 
-                dielectric.mReflectance = nAttr.createColor("reflectance", "r")
+                plastic.mSpecular = nAttr.createColor("specularReflectance", "sr")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
                 nAttr.setDefault(1.0,1.0,1.0)
 
-                dielectric.mTransmittance = nAttr.createColor("transmittance","t")
+                plastic.mDiffuse = nAttr.createColor("diffuseReflectance","dr")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
-                nAttr.setDefault(1.0,1.0,1.0)
+                nAttr.setDefault(.5,.5,.5)
 
-                dielectric.mIntIOR = nAttr.create("InteriorIOR","iior", OpenMaya.MFnNumericData.kFloat, 1.0)
-                nAttr.setKeyable(1) 
-                nAttr.setStorable(1)
-                nAttr.setReadable(1)
-                nAttr.setWritable(1)
-
-                dielectric.mExtIOR = nAttr.create("ExteriorIOR","eior", OpenMaya.MFnNumericData.kFloat, 1.3)
+                plastic.mIntIOR = nAttr.create("InteriorIOR","iior", OpenMaya.MFnNumericData.kFloat, 1.0)
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
 
-                dielectric.mOutColor = nAttr.createColor("outColor", "oc")
+                plastic.mExtIOR = nAttr.create("ExteriorIOR","eior", OpenMaya.MFnNumericData.kFloat, 1.000277)
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
+
+                plastic.mOutColor = nAttr.createColor("outColor", "oc")
                 nAttr.setStorable(0)
                 nAttr.setHidden(0)
                 nAttr.setReadable(1)
                 nAttr.setWritable(0)
-
-                dielectric.mOutTransparency = nAttr.createColor("outTransparency", "op")
-                nAttr.setStorable(0)
-                nAttr.setHidden(0)
-                nAttr.setReadable(1)
-                nAttr.setWritable(0)
+                nAttr.setDefault(.75,.75,.75)
 
         except:
                 sys.stderr.write("Failed to create attributes\n")
                 raise
 
         try:
-                dielectric.addAttribute(dielectric.mReflectance)
-                dielectric.addAttribute(dielectric.mTransmittance)
-                dielectric.addAttribute(dielectric.mIntIOR)
-                dielectric.addAttribute(dielectric.mExtIOR)
-                dielectric.addAttribute(dielectric.mOutColor)
-                dielectric.addAttribute(dielectric.mOutTransparency)
+                plastic.addAttribute(plastic.mSpecular)
+                plastic.addAttribute(plastic.mDiffuse)
+                plastic.addAttribute(plastic.mIntIOR)
+                plastic.addAttribute(plastic.mExtIOR)
+                plastic.addAttribute(plastic.mOutColor)
         except:
                 sys.stderr.write("Failed to add attributes\n")
                 raise
 
         try:
-                dielectric.attributeAffects (dielectric.mTransmittance, dielectric.mOutTransparency)
+                plastic.attributeAffects (plastic.mDiffuse, plastic.mOutColor)
         except:
                 sys.stderr.write("Failed in setting attributeAffects\n")
                 raise

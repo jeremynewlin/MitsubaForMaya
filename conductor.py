@@ -3,102 +3,114 @@ import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
 import maya.cmds as cmds
 
-kPluginNodeName = "MitsubaDielectricShader"
+kPluginNodeName = "MitsubaConductorShader"
 kPluginNodeClassify = "/shader/surface"
-kPluginNodeId = OpenMaya.MTypeId(0x87004)
+kPluginNodeId = OpenMaya.MTypeId(0x87002)
 
-class dielectric(OpenMayaMPx.MPxNode):
+class conductor(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
-                mReflectance = OpenMaya.MObject()
-                mTransmittance = OpenMaya.MObject()
-                mIntIOR = OpenMaya.MObject()
-                mExtIOR = OpenMaya.MObject()
+                mMaterial = OpenMaya.MObject()
+                mEta = OpenMaya.MObject()
+                mK = OpenMaya.MObject()
+                mExtEta = OpenMaya.MObject()
+
+                mSpecularReflectance = OpenMaya.MObject()
 
                 mOutColor = OpenMaya.MObject()
-                mOutTransparency = OpenMaya.MObject()
 
         def compute(self, plug, block):
-                if plug == dielectric.mOutColor:
-                        print "out color"
-                        resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
+                if plug == conductor.mOutColor:
+                        resultColor = OpenMaya.MFloatVector(0.5,0.5,0.0)
                         
-                        color = block.inputValue( dielectric.mReflectance ).asFloatVector()
-
-                        outColorHandle = block.outputValue( dielectric.mOutColor )
+                        outColorHandle = block.outputValue( conductor.mOutColor )
                         outColorHandle.setMFloatVector(resultColor)
                         outColorHandle.setClean()
-                elif plug == dielectric.mOutTransparency:
-                        outTransHandle = block.outputValue( dielectric.mOutTransparency )
-                        outTransHandle.setMFloatVector(OpenMaya.MFloatVector(0.75,0.75,0.75))
-                        outTransHandle.setClean()
                 else:
                         return OpenMaya.kUnknownParameter
 
 
 def nodeCreator():
-        return dielectric()
+        return conductor()
 
 def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
+        eAttr = OpenMaya.MFnEnumAttribute()
 
         try:
 
-                dielectric.mReflectance = nAttr.createColor("reflectance", "r")
+                conductor.mMaterial = eAttr.create("material", "mat")
+                eAttr.setKeyable(1) 
+                eAttr.setStorable(1)
+                eAttr.setReadable(1)
+                eAttr.setWritable(1)
+
+                eAttr.addField("a-C", 0)
+                eAttr.addField("Ag", 1)
+                eAttr.addField("Al", 2)
+                eAttr.addField("AlAs", 3)
+                eAttr.addField("AlAs_palik", 4)
+                eAttr.addField("AlSb", 5)
+                eAttr.addField("AlSb_palik",  6)
+                eAttr.addField("Au", 7)
+                eAttr.addField("Be", 8)
+                eAttr.addField("Be_palik", 9)
+                eAttr.addField("Cr", 10)
+                eAttr.addField("CsI", 11)
+                eAttr.addField("CsI_palik", 12)
+
+                conductor.mK = nAttr.createColor("k", "k")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
                 nAttr.setDefault(1.0,1.0,1.0)
 
-                dielectric.mTransmittance = nAttr.createColor("transmittance","t")
+                conductor.mEta = nAttr.createColor("eta","e")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
                 nAttr.setDefault(1.0,1.0,1.0)
 
-                dielectric.mIntIOR = nAttr.create("InteriorIOR","iior", OpenMaya.MFnNumericData.kFloat, 1.0)
+                conductor.mExtEta = nAttr.create("extEta","ee", OpenMaya.MFnNumericData.kFloat, 1.0)
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
 
-                dielectric.mExtIOR = nAttr.create("ExteriorIOR","eior", OpenMaya.MFnNumericData.kFloat, 1.3)
-                nAttr.setKeyable(1) 
-                nAttr.setStorable(1)
-                nAttr.setReadable(1)
-                nAttr.setWritable(1)
-
-                dielectric.mOutColor = nAttr.createColor("outColor", "oc")
+                conductor.mSpecularReflectance = nAttr.createColor("specularReflectance", "sr")
                 nAttr.setStorable(0)
                 nAttr.setHidden(0)
                 nAttr.setReadable(1)
                 nAttr.setWritable(0)
+                nAttr.setDefault(1.0,1.0,1.0)
 
-                dielectric.mOutTransparency = nAttr.createColor("outTransparency", "op")
+                conductor.mOutColor = nAttr.createColor("outColor", "oc")
                 nAttr.setStorable(0)
                 nAttr.setHidden(0)
                 nAttr.setReadable(1)
                 nAttr.setWritable(0)
+                nAttr.setDefault(0.5,0.5,0.0)
+
 
         except:
                 sys.stderr.write("Failed to create attributes\n")
                 raise
 
         try:
-                dielectric.addAttribute(dielectric.mReflectance)
-                dielectric.addAttribute(dielectric.mTransmittance)
-                dielectric.addAttribute(dielectric.mIntIOR)
-                dielectric.addAttribute(dielectric.mExtIOR)
-                dielectric.addAttribute(dielectric.mOutColor)
-                dielectric.addAttribute(dielectric.mOutTransparency)
+                conductor.addAttribute(conductor.mMaterial)
+                conductor.addAttribute(conductor.mK)
+                conductor.addAttribute(conductor.mEta)
+                conductor.addAttribute(conductor.mExtEta)
+                conductor.addAttribute(conductor.mSpecularReflectance)
+                conductor.addAttribute(conductor.mOutColor)
         except:
                 sys.stderr.write("Failed to add attributes\n")
                 raise
 
         try:
-                dielectric.attributeAffects (dielectric.mTransmittance, dielectric.mOutTransparency)
+                x=1
         except:
                 sys.stderr.write("Failed in setting attributeAffects\n")
                 raise

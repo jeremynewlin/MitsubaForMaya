@@ -1,28 +1,25 @@
 import sys
 import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
+import maya.cmds as cmds
 
-kPluginNodeName = "MitsubaDiffuseShader"
-kPluginNodeClassify = "shader/surface"
-kPluginNodeId = OpenMaya.MTypeId(0x87003)
+kPluginNodeName = "MitsubaMaskShader"
+kPluginNodeClassify = "/shader/surface"
+kPluginNodeId = OpenMaya.MTypeId(0x870012)
 
-class diffuse(OpenMayaMPx.MPxNode):
+class mask(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
+                mBSDF = OpenMaya.MObject()
+                mOpacity = OpenMaya.MObject()
                 mOutColor = OpenMaya.MObject()
-                mReflectance = OpenMaya.MObject()
 
         def compute(self, plug, block):
-                if plug == diffuse.mOutColor or plug.parent() == diffuse.mOutColor:
+                if plug == mask.mOutColor:
+                        print "out color"
                         resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
                         
-                        color = block.inputValue( diffuse.mReflectance ).asFloatVector()
-
-                        resultColor.x = color.x
-                        resultColor.y = color.y
-                        resultColor.z = color.z
-
-                        outColorHandle = block.outputValue( diffuse.mOutColor )
+                        outColorHandle = block.outputValue( mask.mOutColor )
                         outColorHandle.setMFloatVector(resultColor)
                         outColorHandle.setClean()
                 else:
@@ -30,19 +27,28 @@ class diffuse(OpenMayaMPx.MPxNode):
 
 
 def nodeCreator():
-        return diffuse()
+        return mask()
 
 def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
 
         try:
-                diffuse.mReflectance = nAttr.createColor("reflectance", "r")
+
+                mask.mOpacity = nAttr.createColor("texture", "tex")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
+                nAttr.setDefault(1.0,1.0,1.0)
 
-                diffuse.mOutColor = nAttr.createColor("outColor", "oc")
+                mask.mBSDF = nAttr.createColor("bsdf", "bsdf")
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
+                nAttr.setDefault(0.0,0.0,0.0)
+
+                mask.mOutColor = nAttr.createColor("outColor", "oc")
                 nAttr.setStorable(0)
                 nAttr.setHidden(0)
                 nAttr.setReadable(1)
@@ -53,14 +59,15 @@ def nodeInitializer():
                 raise
 
         try:
-                diffuse.addAttribute(diffuse.mReflectance)
-                diffuse.addAttribute(diffuse.mOutColor)
+                mask.addAttribute(mask.mBSDF)
+                mask.addAttribute(mask.mOpacity)
+                mask.addAttribute(mask.mOutColor)
         except:
                 sys.stderr.write("Failed to add attributes\n")
                 raise
 
         try:
-                diffuse.attributeAffects (diffuse.mReflectance, diffuse.mOutColor)
+                z=1
         except:
                 sys.stderr.write("Failed in setting attributeAffects\n")
                 raise

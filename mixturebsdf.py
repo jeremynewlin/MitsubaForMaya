@@ -1,28 +1,25 @@
 import sys
 import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
+import maya.cmds as cmds
 
-kPluginNodeName = "MitsubaDiffuseShader"
-kPluginNodeClassify = "shader/surface"
-kPluginNodeId = OpenMaya.MTypeId(0x87003)
+kPluginNodeName = "MitsubaMixtureShader"
+kPluginNodeClassify = "/shader/surface"
+kPluginNodeId = OpenMaya.MTypeId(0x870011)
 
-class diffuse(OpenMayaMPx.MPxNode):
+class mixture(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
+                mBSDF = OpenMaya.MObject()
+                mWeights = OpenMaya.MObject()
                 mOutColor = OpenMaya.MObject()
-                mReflectance = OpenMaya.MObject()
 
         def compute(self, plug, block):
-                if plug == diffuse.mOutColor or plug.parent() == diffuse.mOutColor:
+                if plug == mixture.mOutColor:
+                        print "out color"
                         resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
                         
-                        color = block.inputValue( diffuse.mReflectance ).asFloatVector()
-
-                        resultColor.x = color.x
-                        resultColor.y = color.y
-                        resultColor.z = color.z
-
-                        outColorHandle = block.outputValue( diffuse.mOutColor )
+                        outColorHandle = block.outputValue( mixture.mOutColor )
                         outColorHandle.setMFloatVector(resultColor)
                         outColorHandle.setClean()
                 else:
@@ -30,19 +27,21 @@ class diffuse(OpenMayaMPx.MPxNode):
 
 
 def nodeCreator():
-        return diffuse()
+        return mixture()
 
 def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
+        tAttr = OpenMaya.MFnTypedAttribute()
 
         try:
-                diffuse.mReflectance = nAttr.createColor("reflectance", "r")
-                nAttr.setKeyable(1) 
-                nAttr.setStorable(1)
-                nAttr.setReadable(1)
-                nAttr.setWritable(1)
 
-                diffuse.mOutColor = nAttr.createColor("outColor", "oc")
+                mixture.mWeights = tAttr.create("weights","w",OpenMaya.MFnData.kDoubleArray)
+                tAttr.setStorable(1)
+                tAttr.setHidden(1)
+                tAttr.setReadable(1)
+                tAttr.setWritable(1)
+
+                mixture.mOutColor = nAttr.createColor("outColor", "oc")
                 nAttr.setStorable(0)
                 nAttr.setHidden(0)
                 nAttr.setReadable(1)
@@ -53,14 +52,14 @@ def nodeInitializer():
                 raise
 
         try:
-                diffuse.addAttribute(diffuse.mReflectance)
-                diffuse.addAttribute(diffuse.mOutColor)
+                mixture.addAttribute(mixture.mWeights)
+                mixture.addAttribute(mixture.mOutColor)
         except:
                 sys.stderr.write("Failed to add attributes\n")
                 raise
 
         try:
-                diffuse.attributeAffects (diffuse.mReflectance, diffuse.mOutColor)
+                z=1
         except:
                 sys.stderr.write("Failed in setting attributeAffects\n")
                 raise
