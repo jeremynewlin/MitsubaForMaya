@@ -55,13 +55,13 @@ def nodeInitializer():
                 nAttr.setWritable(1)
                 nAttr.setDefault(.5,.5,.5)
 
-                plastic.mIntIOR = nAttr.create("InteriorIOR","iior", OpenMaya.MFnNumericData.kFloat, 1.0)
+                plastic.mIntIOR = nAttr.create("InteriorIOR","intIOR", OpenMaya.MFnNumericData.kFloat, 1.0)
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
 
-                plastic.mExtIOR = nAttr.create("ExteriorIOR","eior", OpenMaya.MFnNumericData.kFloat, 1.000277)
+                plastic.mExtIOR = nAttr.create("ExteriorIOR","extIOR", OpenMaya.MFnNumericData.kFloat, 1.000277)
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)

@@ -1,62 +1,45 @@
 import sys
 import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
+import maya.cmds as cmds
 
-kPluginNodeName = "MitsubaRoughDiffuseShader"
-kPluginNodeClassify = "shader/surface"
-kPluginNodeId = OpenMaya.MTypeId(0x8700A)
+kPluginNodeName = "MitsubaTwoSidedShader"
+kPluginNodeClassify = "/shader/surface"
+kPluginNodeId = OpenMaya.MTypeId(0x870013)
 
-class roughdiffuse(OpenMayaMPx.MPxNode):
+class twosided(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
+                mBSDF = OpenMaya.MObject()
                 mOutColor = OpenMaya.MObject()
-                mReflectance = OpenMaya.MObject()
-                mAlpha = OpenMaya.MObject()
-                mApprox = OpenMaya.MObject()
 
         def compute(self, plug, block):
-                if plug == roughdiffuse.mOutColor:
+                if plug == twosided.mOutColor:
+                        print "out color"
                         resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
                         
-                        color = block.inputValue( roughdiffuse.mReflectance ).asFloatVector()
-
-                        resultColor.x = color.x
-                        resultColor.y = color.y
-                        resultColor.z = color.z
-
-                        outColorHandle = block.outputValue( roughdiffuse.mOutColor )
+                        outColorHandle = block.outputValue( twosided.mOutColor )
                         outColorHandle.setMFloatVector(resultColor)
                         outColorHandle.setClean()
                 else:
                         return OpenMaya.kUnknownParameter
 
-
 def nodeCreator():
-        return roughdiffuse()
+        return twosided()
 
 def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
 
         try:
-                roughdiffuse.mReflectance = nAttr.createColor("reflectance", "r")
+
+                twosided.mBSDF = nAttr.createColor("bsdf", "bsdf")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
+                nAttr.setDefault(0.0,0.0,0.0)
 
-                roughdiffuse.mAlpha = nAttr.create("alpha","a", OpenMaya.MFnNumericData.kFloat, 0.2)
-                nAttr.setKeyable(1) 
-                nAttr.setStorable(1)
-                nAttr.setReadable(1)
-                nAttr.setWritable(1)
-
-                roughdiffuse.mApprox = nAttr.create("useFastApprox","ax", OpenMaya.MFnNumericData.kBoolean, False)
-                nAttr.setKeyable(1) 
-                nAttr.setStorable(1)
-                nAttr.setReadable(1)
-                nAttr.setWritable(1)
-
-                roughdiffuse.mOutColor = nAttr.createColor("outColor", "oc")
+                twosided.mOutColor = nAttr.createColor("outColor", "oc")
                 nAttr.setStorable(0)
                 nAttr.setHidden(0)
                 nAttr.setReadable(1)
@@ -67,16 +50,14 @@ def nodeInitializer():
                 raise
 
         try:
-                roughdiffuse.addAttribute(roughdiffuse.mReflectance)
-                roughdiffuse.addAttribute(roughdiffuse.mAlpha)
-                roughdiffuse.addAttribute(roughdiffuse.mApprox)
-                roughdiffuse.addAttribute(roughdiffuse.mOutColor)
+                twosided.addAttribute(twosided.mBSDF)
+                twosided.addAttribute(twosided.mOutColor)
         except:
                 sys.stderr.write("Failed to add attributes\n")
                 raise
 
         try:
-                roughdiffuse.attributeAffects (roughdiffuse.mReflectance, roughdiffuse.mOutColor)
+                z=1
         except:
                 sys.stderr.write("Failed in setting attributeAffects\n")
                 raise

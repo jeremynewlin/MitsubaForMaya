@@ -67,13 +67,13 @@ def nodeInitializer():
                 nAttr.setWritable(1)
                 nAttr.setDefault(1.0,1.0,1.0)
 
-                thindielectric.mIntIOR = nAttr.create("InteriorIOR","iior", OpenMaya.MFnNumericData.kFloat, 1.0)
+                thindielectric.mIntIOR = nAttr.create("InteriorIOR","intIOR", OpenMaya.MFnNumericData.kFloat, 1.0)
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
 
-                thindielectric.mExtIOR = nAttr.create("ExteriorIOR","eior", OpenMaya.MFnNumericData.kFloat, 1.3)
+                thindielectric.mExtIOR = nAttr.create("ExteriorIOR","extIOR", OpenMaya.MFnNumericData.kFloat, 1.3)
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)

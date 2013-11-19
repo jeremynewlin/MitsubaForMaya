@@ -14,6 +14,7 @@ class dielectric(OpenMayaMPx.MPxNode):
                 mTransmittance = OpenMaya.MObject()
                 mIntIOR = OpenMaya.MObject()
                 mExtIOR = OpenMaya.MObject()
+                mMaterial = OpenMaya.MObject()
 
                 mOutColor = OpenMaya.MObject()
                 mOutTransparency = OpenMaya.MObject()
@@ -44,6 +45,13 @@ def nodeInitializer():
 
         try:
 
+                dielectric.mMaterial = nAttr.createColor("material", "mat")
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
+                nAttr.setDefault(1.0,1.0,1.0)
+
                 dielectric.mReflectance = nAttr.createColor("reflectance", "r")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
@@ -58,13 +66,13 @@ def nodeInitializer():
                 nAttr.setWritable(1)
                 nAttr.setDefault(1.0,1.0,1.0)
 
-                dielectric.mIntIOR = nAttr.create("InteriorIOR","iior", OpenMaya.MFnNumericData.kFloat, 1.0)
+                dielectric.mIntIOR = nAttr.create("InteriorIOR","intIOR", OpenMaya.MFnNumericData.kFloat, 1.0)
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
 
-                dielectric.mExtIOR = nAttr.create("ExteriorIOR","eior", OpenMaya.MFnNumericData.kFloat, 1.3)
+                dielectric.mExtIOR = nAttr.create("ExteriorIOR","extIOR", OpenMaya.MFnNumericData.kFloat, 1.3)
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
@@ -87,6 +95,7 @@ def nodeInitializer():
                 raise
 
         try:
+                dielectric.addAttribute(dielectric.mMaterial)
                 dielectric.addAttribute(dielectric.mReflectance)
                 dielectric.addAttribute(dielectric.mTransmittance)
                 dielectric.addAttribute(dielectric.mIntIOR)
