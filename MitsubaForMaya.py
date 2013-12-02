@@ -323,14 +323,12 @@ def writeShader(material, outFile, tabbedSpace):
 
         outFile.write(tabbedSpace + " <bsdf type=\"phong\" id=\"" + material + "\">\n")
         outFile.write(tabbedSpace + "     <string name=\"variant\" value=\"" + str(variant) + "\"/>\n")
-        outFile.write(tabbedSpace + "     <float name=\"alphaU\" value=\"" + str(alphaUV[0]) + "\"/>\n")
-        outFile.write(tabbedSpace + "     <float name=\"alphaV\" value=\"" + str(alphaUV[1]) + "\"/>\n")
+        outFile.write(tabbedSpace + "     <float name=\"alphaU\" value=\"" + str(alphaUV[0][0]) + "\"/>\n")
+        outFile.write(tabbedSpace + "     <float name=\"alphaV\" value=\"" + str(alphaUV[0][1]) + "\"/>\n")
         outFile.write(tabbedSpace + "     <srgb name=\"specularReflectance\" value=\"" + str(specularReflectance[0][0]) + " " + str(specularReflectance[0][1]) + " " + str(specularReflectance[0][2]) + "\"/>\n")
         outFile.write(tabbedSpace + "     <srgb name=\"diffuseReflectance\" value=\"" + str(diffuseReflectance[0][0]) + " " + str(diffuseReflectance[0][1]) + " " + str(diffuseReflectance[0][2]) + "\"/>\n")
         outFile.write(tabbedSpace + " </bsdf>\n")
-
-    else:
-        print matType
+        print "end of ward"
 
 # Render Command
 class mitsubaForMaya(OpenMayaMPx.MPxCommand):
@@ -351,9 +349,174 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
         outFile.write("<?xml version=\'1.0\' encoding=\'utf-8\'?>\n")
         outFile.write("\n")
         outFile.write("<scene version=\"0.4.0\">\n")
-        outFile.write(" <integrator type=\"path\">\n")
+
+        #Write the integrator########################################################################
+        global integrator
+        global integratorFrames
+        activeIntegrator = cmds.optionMenu(integrator, query=True, value=True)
+        activeSettings = integratorFrames[0]
+
+        #Find the active integrator's settings frame layout
+        for frame in integratorFrames:
+            if cmds.frameLayout(frame, query=True, visible=True):
+                activeSettings = frame
+
+
+        print activeIntegrator
+        if activeIntegrator=="Ambient_Occlusion":
+            '''
+            The order for this integrator is:
+            0. intFieldGrp shadingSamples
+            1. checkBox to use automatic ray length
+            2. intFieldGrp rayLength (for manual rayLength)
+            '''
+            sSamples = cmds.intFieldGrp(integratorSettings[0], query=True, value1=True)
+            outFile.write("     <integer name=\"shadingSamples\" value=\"" + str(sSamples) + "\"/>\n")
+
+            if cmds.checkBox(integratorSettings[1], query=True, value=True):
+                outFile.write("     <integer name=\"rayLength\" value=\"" + str(-1) + "\"/>\n")
+            else:
+                rl = cmds.intFieldGrp(integratorSettings[2], query=True, value1=True)
+                outFile.write("     <integer name=\"rayLength\" value=\"" + str(rl) + "\"/>\n")
+       
+        #Write DI settings
+        elif activeIntegrator=="Direct_Illumination":
+            '''
+            The order for this integrator is:
+            0. intFieldGrp shadingSamples
+            1. checkBox to use separate samples for emitters and bsdfs
+            2. intFieldGrp emitterSamples
+            3. intFieldGrp bsdfSamples
+            4. checkBox strictNormals
+            5. checkBox hideEmitters
+            '''
+            outFile.write(" <integrator type=\"direct\">\n")
+            integratorSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
+            if cmds.checkBox(integratorSettings[1], query=True, value=True):
+                eSamples = cmds.intFieldGrp(integratorSettings[2], query=True, value1=True)
+                bSamples = cmds.intFieldGrp(integratorSettings[3], query=True, value1=True)
+                outFile.write("     <integer name=\"emitterSamples\" value=\"" + str(eSamples) + "\"/>\n")
+                outFile.write("     <integer name=\"bsdfSamples\" value=\"" + str(bSamples) + "\"/>\n")
+            else:
+                sSamples = cmds.intFieldGrp(integratorSettings[0], query=True, value1=True)
+                outFile.write("     <integer name=\"shadingSamples\" value=\"" + str(sSamples) + "\"/>\n")
+
+            if cmds.checkBox(integratorSettings[4], query=True, value=True):
+                outFile.write("     <boolean name=\"strictNormals\" value=\"true\"/>\n")
+            else:
+                outFile.write("     <boolean name=\"strictNormals\" value=\"false\"/>\n")
+
+            if cmds.checkBox(integratorSettings[5], query=True, value=True):
+                outFile.write("     <boolean name=\"hideEmitters\" value=\"true\"/>\n")
+            else:
+                outFile.write("     <boolean name=\"hideEmitters\" value=\"false\"/>\n")
+
+        #Write path tracer, volpaths settings
+        elif activeIntegrator=="Path_Tracer" or activeIntegrator=="Volumetric_Path_Tracer" or activeIntegrator=="Simple_Volumetric_Path_Tracer":
+            '''
+            The order for this integrator is:
+            0. checkBox to use infinite samples
+            1. intFieldGrp maxDepth
+            2. intFieldGrp rrDepth
+            3. checkBox strictNormals
+            4. checkBox hideEmitters
+            '''
+            if activeIntegrator=="Path_Tracer":
+                outFile.write(" <integrator type=\"path\">\n")
+            elif activeIntegrator=="Volumetric_Path_Tracer":
+                outFile.write(" <integrator type=\"volpath\">\n")
+            else:
+                outFile.write(" <integrator type=\"volpath_simple\">\n")
+
+            integratorSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
+
+            if cmds.checkBox(integratorSettings[0], query=True, value=True):
+                outFile.write("     <integer name=\"maxDepth\" value=\"-1\"/>\n")
+            else:
+                maxDepth = cmds.intFieldGrp(integratorSettings[1], query=True, value1=True)
+                outFile.write("     <integer name=\"emitterSamples\" value=\"" + str(maxDepth) + "\"/>\n")
+
+            rrDepth = cmds.intFieldGrp(integratorSettings[2], query=True, value1=True)
+            outFile.write("     <integer name=\"emitterSamples\" value=\"" + str(rrDepth) + "\"/>\n")            
+
+            if cmds.checkBox(integratorSettings[3], query=True, value=True):
+                outFile.write("     <boolean name=\"strictNormals\" value=\"true\"/>\n")
+            else:
+                outFile.write("     <boolean name=\"strictNormals\" value=\"false\"/>\n")
+
+            if cmds.checkBox(integratorSettings[4], query=True, value=True):
+                outFile.write("     <boolean name=\"hideEmitters\" value=\"true\"/>\n")
+            else:
+                outFile.write("     <boolean name=\"hideEmitters\" value=\"false\"/>\n")
+
+        #Write bdpt
+        elif activeIntegrator=="Bidirectional_Path_Tracer":
+            '''
+            The order for this integrator is:
+            0. checkBox to use infinite samples
+            1. intFieldGrp maxDepth
+            2. checkBox lightImage
+            3. checkBox sampleDirect
+            4. intFieldGrp rrDepth
+            '''
+            outFile.write(" <integrator type=\"bdpt\">\n")
+            integratorSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
+
+            if cmds.checkBox(integratorSettings[0], query=True, value=True):
+                outFile.write("     <integer name=\"maxDepth\" value=\"-1\"/>\n")
+            else:
+                maxDepth = cmds.intFieldGrp(integratorSettings[1], query=True, value1=True)
+                outFile.write("     <integer name=\"emitterSamples\" value=\"" + str(maxDepth) + "\"/>\n")
+
+            if cmds.checkBox(integratorSettings[2], query=True, value=True):
+                outFile.write("     <boolean name=\"lightImage\" value=\"true\"/>\n")
+            else:
+                outFile.write("     <boolean name=\"lightImage\" value=\"false\"/>\n")
+
+            if cmds.checkBox(integratorSettings[3], query=True, value=True):
+                outFile.write("     <boolean name=\"sampleDirect\" value=\"true\"/>\n")
+            else:
+                outFile.write("     <boolean name=\"sampleDirect\" value=\"false\"/>\n")
+
+            rrDepth = cmds.intFieldGrp(integratorSettings[4], query=True, value1=True)
+            outFile.write("     <integer name=\"emitterSamples\" value=\"" + str(rrDepth) + "\"/>\n")    
+
+
+        #Write photon mapper
+        elif activeIntegrator=="Photon_Map":
+            print "photonmapper"
+
+        #Write progressive photon mapper
+        elif activeIntegrator=="Progressive_Photon_Map":
+            print "ppm"
+
+        #Write sppm
+        elif activeIntegrator=="Stochastic_Progressive_Photon_Map":
+            print "sppm"
+
+        #Write pssmlt
+        elif activeIntegrator=="Primary_Sample_Space_Metropolis_Light_Transport":
+            print "pssmlt"
+
+        #Write psmlt
+        elif activeIntegrator=="Path_Space_Metropolis_Light_Transport":
+            print "psmlt"
+
+        #Write erpt
+        elif activeIntegrator=="Energy_Redistribution_Path_Tracer":
+            print "eprt"
+
+        #Write ptracer
+        elif activeIntegrator=="Adjoint_Particle_Tracer":
+            print "ptracer"
+
+        #Write vpl
+        elif activeIntegrator=="Virtual_Point_Lights":
+            print "vpl"
+
         outFile.write(" </integrator>\n")
-        outFile.write("\n")
+        #############################################################################################
+
         outFile.write(" <!-- Camera -->\n")
 
         cams = cmds.ls(type="camera")
@@ -363,9 +526,12 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
             if isRenderable:
                 rCamShape = cam
                 break
-                
+        
+        print rCamShape        
         rGroup = cmds.listConnections(rCamShape)[0]
+
         rGroupRels = cmds.listRelatives(rGroup)
+
         rCam = rGroupRels[0]
         rAim = rGroupRels[1]
         rUp  = rGroupRels[2]
@@ -392,6 +558,7 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
         outFile.write("         <integer name=\"height\" value=\"720\"/>\n")
         outFile.write("         <integer name=\"width\" value=\"1280\"/>\n")
         outFile.write("         <rfilter type=\"gaussian\"/>\n")
+        outFile.write("         <boolean name=\"banner\" value=\"false\"/>\n")
         outFile.write("     </film>\n")
         outFile.write(" </sensor>\n")
         outFile.write("\n")
@@ -420,12 +587,19 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
             rels = cmds.listRelatives(transform)
             for rel in rels:
                 if cmds.nodeType(rel)=="mesh":
-                    geoms.append(transform)
+                    visible = cmds.getAttr(transform+".visibility")
+                    if cmds.attributeQuery("intermediateObject", node=transform, exists=True):
+                        visible = visible and not cmds.getAttr(transform+".intermediateObject")
+                    if cmds.attributeQuery("overrideEnabled", node=transform, exists=True):
+                        visible = visible and cmds.getAttr(transform+".overrideVisibility")
+                    if visible:
+                        geoms.append(transform)
 
         #Write the material for each piece of geometry in the scene
         for geom in geoms:
             material = getShader(geom)          #Gets the user define names of the shader
-            writeShader(material, outFile, "")  #Write the shader to the xml file
+            if cmds.nodeType(material) in materialNodeTypes:
+                writeShader(material, outFile, "")  #Write the shader to the xml file
                 
         outFile.write("\n")
         outFile.write("<!-- End of materials -->")
@@ -433,14 +607,15 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
 
         #Write each piece of geometry
         for geom in geoms:
-            output = cwd+geom+".obj"
-            cmds.select(geom)
-            cmds.file(output, op=True, typ="OBJexport", es=True, force=True)
             shader = getShader(geom)
-            outFile.write("    <shape type=\"obj\">\n")
-            outFile.write("        <string name=\"filename\" value=\"" + geom + ".obj\"/>\n")
-            outFile.write("        <ref id=\"" + shader + "\"/>\n")
-            outFile.write("    </shape>\n")
+            if cmds.nodeType(shader) in materialNodeTypes:
+                output = cwd+geom+".obj"
+                cmds.select(geom)
+                cmds.file(output, op=True, typ="OBJexport", es=True, force=True)
+                outFile.write("    <shape type=\"obj\">\n")
+                outFile.write("        <string name=\"filename\" value=\"" + geom + ".obj\"/>\n")
+                outFile.write("        <ref id=\"" + shader + "\"/>\n")
+                outFile.write("    </shape>\n")
             
         outFile.write("\n")
         outFile.write("</scene>")
@@ -455,7 +630,7 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
 class renderSettings():
     def __init__(self):
         self.integrator="Path_Tracer"
-        self.hideEmitters=True
+        self.hideEmitters=False
         self.sampler="Independent_Sampler"
 
 ##################################################
@@ -467,11 +642,19 @@ global samplerFrame
 global sampler
 global renderButton
 global hideEmitters
+global integratorFrames
 
+'''
+This function creates the render settings window.
+This includes the integrator, sample generator, image filter,
+and film type.
+'''
 def createRenderSettings():
     global renderSettingsWindow
-    renderSettingsWindow = cmds.window(title="Mitsuba Render Settings", iconName="MTS", widthHeight=(100,250), retain=True)
-    cmds.columnLayout(adjustableColumn=False)
+    renderSettingsWindow = cmds.window(title="Mitsuba Render Settings", iconName="MTS", widthHeight=(100,250), retain=True, resizeToFitChildren=True)
+    cmds.columnLayout(adjustableColumn=True)
+    # cmds.formLayout()
+    #Create integrator selection drop down menu
     global integrator
     integrator = cmds.optionMenu(label="Integrator", changeCommand=changeIntegrator)
     cmds.menuItem('Ambient Occlusion')
@@ -491,23 +674,177 @@ def createRenderSettings():
 
     cmds.optionMenu(integrator, edit=True, select=3)
 
-    global hideEmitters
-    hitdeEmitters = cmds.checkBox(label='Hide Emitters', changeCommand=toggleHideEmitters)
-
-    global samplerFrame
-    samplerFrame = cmds.frameLayout(label="Sampler generator", cll=False)
-    global sampler
-    sampler = cmds.optionMenu(label='Type', changeCommand=changeSampler)
-    cmds.menuItem("Independent Sampler")
-    cmds.menuItem("Stratified Sampler")
-    cmds.menuItem("Low discrepancy Sampler")
-    cmds.menuItem("Halton QMC Sampler")
-    cmds.menuItem("Hammersley QMC Sampler")
-    cmds.menuItem("Sobol QMC Sampler")
-
+    #Make the integrator specific settings
+    global integratorFrames
+    integratorFrames = []
+    aoSettings = cmds.frameLayout(label="Ambient Occlusion", cll=True, visible=False)
+    cmds.intFieldGrp(numberOfFields=1, label="shadingSamples", value1=1)
+    cmds.checkBox(label="Use automatic ray length")
+    cmds.floatFieldGrp(numberOfFields=1, label="rayLength", value1=1)
     cmds.setParent('..')
+
+    diSettings = cmds.frameLayout(label="Direct Illumination", cll=True, visible=False)
+    cmds.intFieldGrp(numberOfFields=1, label="shadingSamples", value1=1)
+    cmds.checkBox(label="Use emitter and bsdf specific samplers")
+    cmds.intFieldGrp(numberOfFields=1, label="emitterSamples", value1=1)
+    cmds.intFieldGrp(numberOfFields=1, label="bsdfSamples", value1=1)
+    cmds.checkBox(label = "strictNormals")
+    cmds.checkBox(label = "hideEmitters")
+    cmds.setParent('..')
+
+    pSettings = cmds.frameLayout(label="Path Tracer", cll=True)
+    cmds.checkBox("Use infinite samples")
+    cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
+    cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=1)
+    cmds.checkBox(label = "strictNormals")
+    cmds.checkBox(label = "hideEmitters")
+    cmds.setParent('..')
+
+    vpsSettings = cmds.frameLayout(label="Simple Volumetric Path Tracer", cll=True, visible=False)
+    cmds.checkBox("Use infinite samples")
+    cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
+    cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=1)
+    cmds.checkBox(label = "strictNormals")
+    cmds.checkBox(label = "hideEmitters")
+    cmds.setParent('..')
+
+    vpSettings = cmds.frameLayout(label="Volumetric Path Tracer", cll=True, visible=False)
+    cmds.checkBox("Use infinite samples")
+    cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
+    cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=1)
+    cmds.checkBox(label = "strictNormals")
+    cmds.checkBox(label = "hideEmitters")
+    cmds.setParent('..')
+
+    bdptSettings = cmds.frameLayout(label="Bidirectional Path Tracer", cll=True, visible=False)
+    cmds.checkBox(label = "Use infinite samples")
+    cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
+    cmds.checkBox(label = "lightImage")
+    cmds.checkBox(label = "sampleDirect")
+    cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=1)
+    cmds.setParent('..')
+
+    pmSettings = cmds.frameLayout(label="Photon Map", cll=True, visible=False)
+    cmds.intFieldGrp(numberOfFields=1, label="directSamples", value1=16)
+    cmds.intFieldGrp(numberOfFields=1, label="glossySamples", value1=32)
+    cmds.checkBox(label = "Use infinite samples")
+    cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
+    cmds.intFieldGrp(numberOfFields=1, label="globalPhotons", value1=250000)
+    cmds.intFieldGrp(numberOfFields=1, label="causticPhotons", value1=250000)
+    cmds.intFieldGrp(numberOfFields=1, label="volumePhotons", value1=250000)
+    cmds.floatFieldGrp(numberOfFields=1, label="globalLookupRadius", value1=0.05)
+    cmds.floatFieldGrp(numberOfFields=1, label="causticLookupRadius", value1=0.05)
+    cmds.intFieldGrp(numberOfFields=1, label="lookupSize", value1=120)
+    cmds.checkBox(label = "Use automatic granularity")
+    cmds.intFieldGrp(numberOfFields=1, label="granularity", value1=0)
+    cmds.checkBox(label = "hideEmitters")
+    cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=1)
+    cmds.setParent('..')
+
+    ppmSettings = cmds.frameLayout(label="Progressive Photon Map", cll=True, visible=False)
+    cmds.checkBox(label = "Use infinite depth")
+    cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
+    cmds.intFieldGrp(numberOfFields=1, label="photonCount", value1=250000)
+    cmds.checkBox(label = "Automatically decide initialRadius")
+    cmds.floatFieldGrp(numberOfFields=1, label="initialRadius", value1=0.0)
+    cmds.floatFieldGrp(numberOfFields=1, label="alpha", value1=0.7)
+    cmds.checkBox(label = "Use automatic granularity")
+    cmds.intFieldGrp(numberOfFields=1, label="granularity", value1=0)
+    cmds.checkBox(label = "hideEmitters")
+    cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=1)
+    cmds.checkBox(label = "Use infinite maxPasses")
+    cmds.intFieldGrp(numberOfFields=1, label="maxPasses", value1=1)
+    cmds.setParent('..')
+
+    sppmSettings = cmds.frameLayout(label="Stochastic Progressive Photon Map", cll=True, visible=False)
+    cmds.checkBox(label = "Use infinite depth")
+    cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
+    cmds.intFieldGrp(numberOfFields=1, label="photonCount", value1=250000)
+    cmds.checkBox(label = "Automatically decide initialRadius")
+    cmds.floatFieldGrp(numberOfFields=1, label="initialRadius", value1=0.0)
+    cmds.floatFieldGrp(numberOfFields=1, label="alpha", value1=0.7)
+    cmds.checkBox(label = "Use automatic granularity")
+    cmds.intFieldGrp(numberOfFields=1, label="granularity", value1=0)
+    cmds.checkBox(label = "hideEmitters")
+    cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=1)
+    cmds.checkBox(label = "Use infinite maxPasses")
+    cmds.intFieldGrp(numberOfFields=1, label="maxPasses", value1=1)
+    cmds.setParent('..')
+
+    pssmltSettings = cmds.frameLayout(label="Primary Sample Space Metropolis Light Transport", cll=True, visible=False)
+    cmds.checkBox(label = "bidirectional")
+    cmds.checkBox(label = "Use infinite depth")
+    cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
+    cmds.checkBox(label = "Use automatic direct samples")
+    cmds.intFieldGrp(numberOfFields=1, label="directSamples", value1=16)
+    cmds.intFieldGrp(numberOfFields=1, label="luminanceSamples", value1=100000)
+    cmds.checkBox(label = "twoStage", value=False)
+    cmds.checkBox(label = "hideEmitters", value=True)
+    cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=5)
+    cmds.floatFieldGrp(numberOfFields=1, label="pLarge", value1=0.3)
+    cmds.setParent('..')
+
+    mltSettings = cmds.frameLayout(label="Path Space Metropolis Light Transport", cll=True, visible=False)
+    cmds.checkBox(label = "Use infinite depth")
+    cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
+    cmds.checkBox(label = "Use automatic direct samples")
+    cmds.intFieldGrp(numberOfFields=1, label="directSamples", value1=16)
+    cmds.intFieldGrp(numberOfFields=1, label="luminanceSamples", value1=100000)
+    cmds.checkBox(label = "twoStage", value=False)
+    cmds.checkBox(label = "bidirectionalMutation", value=True)
+    cmds.checkBox(label = "lensPerturbation", value=True)
+    cmds.checkBox(label = "multiChainPerturbation", value=True)
+    cmds.checkBox(label = "causticPerturbation", value=True)
+    cmds.checkBox(label = "manifoldPerturbation", value=False)
+    cmds.checkBox(label = "hideEmitters", value=True)
+    cmds.floatFieldGrp(numberOfFields=1, label="lambda", value1=0.3)
+    cmds.setParent('..')
+
+    erptSettings = cmds.frameLayout(label="Energy Redistribution Path Tracer", cll=True, visible=False)
+    cmds.checkBox(label = "Use infinite depth")
+    cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
+    cmds.checkBox(label = "Enable max chains", value=False)
+    cmds.floatFieldGrp(numberOfFields=1, label="numChains", value1=1.0)
+    cmds.checkBox(label = "Use automatic direct samples", value=False)
+    cmds.intFieldGrp(numberOfFields=1, label="directSamples", value1=16)
+    cmds.checkBox(label = "lensPerturbation", value=True)
+    cmds.checkBox(label = "multiChainPerturbation", value=True)
+    cmds.checkBox(label = "causticPerturbation", value=True)
+    cmds.checkBox(label = "manifoldPerturbation", value=False)
+    cmds.checkBox(label = "hideEmitters", value=True)
+    cmds.floatFieldGrp(numberOfFields=1, label="lambda", value1=50)
+    cmds.setParent('..')
+
+    ptrSettings = cmds.frameLayout(label="Adjoint Particle Tracer", cll=True, visible=False)
+    cmds.checkBox(label = "Use infinite depth")
+    cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
+    cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=5)
+    cmds.intFieldGrp(numberOfFields=1, label="granularity", value1=200000)
+    cmds.checkBox(label = "bruteForce", value=False)
+    cmds.checkBox(label = "hideEmitters", value=True)
+    cmds.setParent('..')
+
+    integratorFrames.append(aoSettings)
+    integratorFrames.append(diSettings)
+    integratorFrames.append(pSettings)
+    integratorFrames.append(vpsSettings)
+    integratorFrames.append(vpSettings)
+    integratorFrames.append(bdptSettings)
+    integratorFrames.append(pmSettings)
+    integratorFrames.append(ppmSettings)
+    integratorFrames.append(sppmSettings)
+    integratorFrames.append(pssmltSettings)
+    integratorFrames.append(mltSettings)
+    integratorFrames.append(erptSettings)
+    integratorFrames.append(ptrSettings)
+
+    global hideEmitters
+    cmds.columnLayout(adjustableColumn=False)
+    hideEmitters = cmds.checkBox(label='Hide Emitters', changeCommand=toggleHideEmitters)
+
     global renderButton
-    renderButton = cmds.button(label='Render', align='center', command=callMitsuba)
+    cmds.columnLayout(adjustableColumn=False)
+    renderButton = cmds.button(label='Render', command=callMitsuba)
 
 def showRenderSettings(self):
     global renderSettingsWindow
@@ -518,17 +855,25 @@ def callMitsuba(self):
 
 def changeIntegrator(self):
     global integrator
-    global settings
-    settings.integrator = cmds.optionMenu(integrator, q=True, v=True)
+    global integratorFrames
+    selectedIntegrator = cmds.optionMenu(integrator, query=True, value=True)
+    for frame in integratorFrames:
+        currentIntegrator = cmds.frameLayout(frame, query=True, label=True)
+        currentIntegrator = currentIntegrator.replace(" ", "_")
+        if currentIntegrator == selectedIntegrator:
+            cmds.frameLayout(frame, edit=True, visible=True)
+        else:
+            cmds.frameLayout(frame, edit=True, visible=False) 
 
 def changeSampler(self):
     global sampler
     global settings
-    settings.sampler = cmds.optionMenu(sampler, q=True, v=True)
+    # settings.sampler = cmds.optionMenu(sampler, q=True, v=True)
+    # updateRenderSettings()
 
 def toggleHideEmitters(self):
-    global hideEmitters
     global settings
+    global hideEmitters
     settings.hideEmitters = cmds.checkBox(hideEmitters, query=True, value=True)
 
 def gui():
@@ -537,6 +882,7 @@ def gui():
     topLevel = cmds.menu( l="Mitsuba", p="MayaWindow", to=True)
     item = cmds.menuItem( p=topLevel, label='Render', c=showRenderSettings )
     createRenderSettings()
+
 
 def deletegui():
     cmds.deleteUI( topLevel )
@@ -552,6 +898,7 @@ def initializePlugin(mobject):
     cmds.loadPlugin("diffuse.py")
     cmds.loadPlugin("dielectric.py")
     cmds.loadPlugin("twosided.py")
+    # cmds.loadPlugin("sampler.py")
     # cmds.loadPlugin("mask.py")
     # cmds.loadPlugin("mixturebsdf.py")
     # cmds.loadPlugin("bump.py")
@@ -583,6 +930,7 @@ def uninitializePlugin(mobject):
     cmds.unloadPlugin("diffuse.py")
     cmds.unloadPlugin("dielectric.py")
     cmds.unloadPlugin("twosided.py")
+    # cmds.unloadPlugin("sampler.py")
     # cmds.unloadPlugin("mask.py")
     # cmds.unloadPlugin("mixturebsdf.py")
     # cmds.unloadPlugin("bump.py")
