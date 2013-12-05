@@ -22,6 +22,7 @@ class roughplastic(OpenMayaMPx.MPxNode):
 
         def compute(self, plug, block):
                 if plug == roughplastic.mOutColor:
+                        print "TETG"
                         resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
                         
                         color = block.inputValue( roughplastic.mDiffuse ).asFloatVector()
