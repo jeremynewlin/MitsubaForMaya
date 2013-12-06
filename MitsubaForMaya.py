@@ -968,8 +968,21 @@ Write lights
 '''
 def writeLights(outFile):
     lights = cmds.ls(type="light")
+    sunskyLights = cmds.ls(type="MitsubaSunsky")
+    areaLights = cmds.ls(type="MitsubaEnvironmentLight")
+
+    if not lights and not sunskyLights and not areaLights:
+        print "No Mitsuba lighting present, defaulting to constant environment emitter"
+        outFile.write(" <emitter type=\"constant\"/>\n")
+
+    if sunskyLights and areaLights or sunskyLights and len(sunskyLights)>1 or areaLights and len(areaLights)>1:
+        print "Cannot specify more than one area light (MitsubaSunsky and MitsubaEnvironmentLight"
+        print "Defaulting to constant environment emitter"
+        outFile.write(" <emitter type=\"constant\"/>\n")
+
     for light in lights:
         lightType = cmds.nodeType(light)
+        print lightType
         if lightType == "directionalLight":
             intensity = cmds.getAttr(light+".intensity")
             color = cmds.getAttr(light+".color")[0]
@@ -982,6 +995,86 @@ def writeLights(outFile):
             outFile.write("     <vector name=\"direction\" x=\"" + str(lightDir[0]) + "\" y=\"" + str(lightDir[1]) + "\" z=\"" + str(lightDir[2]) + "\"/>\n")
             outFile.write("     <srgb name=\"irradiance\" value=\"" + str(irradiance[0]) + " " + str(irradiance[1]) + " " + str(irradiance[2]) + "\"/>\n")
             outFile.write(" </emitter>\n")
+
+    #Sunsky light
+    if sunskyLights:
+        sunsky = sunskyLights[0]
+        sun = cmds.getAttr(sunsky+".useSun")
+        sky = cmds.getAttr(sunsky+".useSky")
+        if sun and sky:
+            outFile.write(" <emitter type=\"sunsky\">\n")
+        elif sun:
+            outFile.write(" <emitter type=\"sun\">\n")
+        elif sky:
+            outFile.write(" <emitter type=\"sky\">\n")
+        else:
+            print "Must use either sun or sky, defaulting to sunsky"
+            outFile.write(" <emitter type=\"sunsky\">\n")
+
+        turbidity = cmds.getAttr(sunsky+".turbidity")
+        albedo = cmds.getAttr(sunsky+".albedo")
+        date = cmds.getAttr(sunsky+".date")
+        time = cmds.getAttr(sunsky+".time")
+        latitude = cmds.getAttr(sunsky+".latitude")
+        longitude = cmds.getAttr(sunsky+".longitude")
+        timezone = cmds.getAttr(sunsky+".timezone")
+        stretch = cmds.getAttr(sunsky+".stretch")
+        resolution = cmds.getAttr(sunsky+".resolution")
+        sunScale = cmds.getAttr(sunsky+".sunScale")
+        skyScale = cmds.getAttr(sunsky+".skyScale")
+        sunRadiusScale = cmds.getAttr(sunsky+".sunRadiusScale")
+
+
+        print resolution
+        outFile.write("     <float name=\"turbidity\" value=\"" + str(turbidity) + "\"/>\n")
+        outFile.write("     <srgb name=\"albedo\" value=\"" + str(albedo[0][0]) + " " + str(albedo[0][1]) + " " + str(albedo[0][2]) + "\"/>\n")
+        outFile.write("     <integer name=\"year\" value=\"" + str(date[0][0]) + "\"/>\n")
+        outFile.write("     <integer name=\"month\" value=\"" + str(date[0][1]) + "\"/>\n")
+        outFile.write("     <integer name=\"day\" value=\"" + str(date[0][2]) + "\"/>\n")
+        outFile.write("     <float name=\"hour\" value=\"" + str(time[0][0]) + "\"/>\n")
+        outFile.write("     <float name=\"minute\" value=\"" + str(time[0][1]) + "\"/>\n")
+        outFile.write("     <float name=\"second\" value=\"" + str(time[0][2]) + "\"/>\n")
+        outFile.write("     <float name=\"latitude\" value=\"" + str(latitude) + "\"/>\n")
+        outFile.write("     <float name=\"longitude\" value=\"" + str(longitude) + "\"/>\n")
+        outFile.write("     <float name=\"timezone\" value=\"" + str(timezone) + "\"/>\n")
+        outFile.write("     <float name=\"stretch\" value=\"" + str(stretch) + "\"/>\n")
+        outFile.write("     <integer name=\"resolutionX\" value=\"" + str(resolution[0][1]) + "\"/>\n")
+        outFile.write("     <integer name=\"resolutionY\" value=\"" + str(resolution[0][1]) + "\"/>\n")
+        outFile.write("     <float name=\"sunScale\" value=\"" + str(sunScale) + "\"/>\n")
+        outFile.write("     <float name=\"skyScale\" value=\"" + str(skyScale) + "\"/>\n")
+        outFile.write("     <float name=\"sunRadiusScale\" value=\"" + str(sunRadiusScale) + "\"/>\n")
+
+        outFile.write(" </emitter>\n")
+
+    #Area lights
+    if areaLights:
+        envmap = areaLights[0]
+        connections = cmds.listConnections(envmap, plugs=False, c=True)
+
+        if connections:
+            for i in range(len(connections)):
+                connection = connections[i]
+                if connection == envmap+".source":
+                    inConnection = connections[i+1]
+                    if cmds.nodeType(inConnection) == "file":
+                        fileName = cmds.getAttr(inConnection+".fileTextureName")
+                        if fileName:
+                            print fileName
+                            extension = fileName[len(fileName)-3:len(fileName)]
+                            print extension
+                            if extension == "hdr" or extension == "exr":
+                                print "Write envmap bitch"
+                            else:
+                                print "file must be hdr or exr"
+                        else:
+                            print "Please supply a fileName if you plan to use an environment map"
+                    else:
+                        print "Source can only be an image file"
+        else:
+            print "Write constant"
+
+
+
 
 def writeGeometryAndMaterials(outFile, cwd):
     transforms = cmds.ls(type="transform")
@@ -1110,6 +1203,8 @@ def initializePlugin(mobject):
     cmds.loadPlugin("homogeneous.py")
     cmds.loadPlugin("conductor.py")
     cmds.loadPlugin("thindielectric.py")
+    cmds.loadPlugin("sunsky.py")
+    cmds.loadPlugin("envmap.py")
     gui()
     try:
         mplugin.registerCommand( kPluginCmdName, cmdCreator )
@@ -1140,6 +1235,8 @@ def uninitializePlugin(mobject):
     cmds.unloadPlugin("homogeneous.py")
     cmds.unloadPlugin("conductor.py")
     cmds.unloadPlugin("thindielectric.py")
+    cmds.unloadPlugin("sunsky.py")
+    cmds.loadPlugin("envmap.py")
     deletegui()
     try:
         mplugin.deregisterCommand( kPluginCmdName )

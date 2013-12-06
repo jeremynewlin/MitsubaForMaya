@@ -4,7 +4,7 @@ import maya.OpenMayaMPx as OpenMayaMPx
 
 kPluginNodeName = "MitsubaSunsky"
 kPluginNodeId = OpenMaya.MTypeId(0x88000)
-kPluginClassify = "light"
+kPluginClassify = "/light/general"
 
 class sunsky(OpenMayaMPx.MPxNode):
         def __init__(self):
@@ -23,6 +23,9 @@ class sunsky(OpenMayaMPx.MPxNode):
                 mSunScale = OpenMaya.MObject()
                 mSkyScale = OpenMaya.MObject()
                 mSunRadiusScale = OpenMaya.MObject()
+
+        def compute(self, plug, block):
+                x=1
 
 def nodeCreator():
         return sunsky()
