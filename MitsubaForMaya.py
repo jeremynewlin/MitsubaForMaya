@@ -431,10 +431,10 @@ def writeIntegrator(outFile):
             outFile.write("     <integer name=\"maxDepth\" value=\"-1\"/>\n")
         else:
             maxDepth = cmds.intFieldGrp(integratorSettings[1], query=True, value1=True)
-            outFile.write("     <integer name=\"emitterSamples\" value=\"" + str(maxDepth) + "\"/>\n")
+            outFile.write("     <integer name=\"maxDepth\" value=\"" + str(maxDepth) + "\"/>\n")
 
         rrDepth = cmds.intFieldGrp(integratorSettings[2], query=True, value1=True)
-        outFile.write("     <integer name=\"emitterSamples\" value=\"" + str(rrDepth) + "\"/>\n")            
+        outFile.write("     <integer name=\"rrDepth\" value=\"" + str(rrDepth) + "\"/>\n")            
 
         if cmds.checkBox(integratorSettings[3], query=True, value=True):
             outFile.write("     <boolean name=\"strictNormals\" value=\"true\"/>\n")
@@ -899,8 +899,83 @@ def writeIntegrator(outFile):
     elif activeIntegrator=="Virtual_Point_Lights":
         print "vpl"
 
-    outFile.write(" </integrator>\n")
+    outFile.write(" </integrator>\n\n\n")
     #############################################################################################
+
+'''
+Write image sample generator
+'''
+def writeSampler(outFile):
+    global samplerFrames
+    global sampler
+
+    activeSampler = cmds.optionMenu(sampler, query=True, value=True)
+    print activeSampler
+    activeSettings = samplerFrames[0]
+
+    for frame in samplerFrames:
+        if cmds.frameLayout(frame, query=True, visible=True):
+            activeSettings = frame
+
+    if activeSampler=="Independent_Sampler":
+        samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
+        outFile.write("         <sampler type=\"independent\">\n")
+
+        sampleCount = cmds.intFieldGrp(samplerSettings[0], query=True, value1=True)
+        outFile.write("             <integer name=\"sampleCount\" value=\"" + str(sampleCount) + "\"/>\n")
+
+    elif activeSampler=="Stratified_Sampler":
+        samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
+        outFile.write("         <sampler type=\"stratified\">\n")
+
+        sampleCount = cmds.intFieldGrp(samplerSettings[0], query=True, value1=True)
+        outFile.write("             <integer name=\"sampleCount\" value=\"" + str(sampleCount) + "\"/>\n")
+
+        dimension = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
+        outFile.write("             <integer name=\"dimension\" value=\"" + str(dimension) + "\"/>\n")
+
+    elif activeSampler=="Low_Discrepancy_Sampler":
+        samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
+        outFile.write("         <sampler type=\"ldsampler\">\n")
+
+        sampleCount = cmds.intFieldGrp(samplerSettings[0], query=True, value1=True)
+        outFile.write("             <integer name=\"sampleCount\" value=\"" + str(sampleCount) + "\"/>\n")
+
+        dimension = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
+        outFile.write("             <integer name=\"dimension\" value=\"" + str(dimension) + "\"/>\n")
+
+    elif activeSampler=="Halton_QMC_Sampler":
+        samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
+        outFile.write("         <sampler type=\"halton\">\n")
+
+        sampleCount = cmds.intFieldGrp(samplerSettings[0], query=True, value1=True)
+        outFile.write("             <integer name=\"sampleCount\" value=\"" + str(sampleCount) + "\"/>\n")
+
+        scramble = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
+        outFile.write("             <integer name=\"scramble\" value=\"" + str(scramble) + "\"/>\n")
+
+    elif activeSampler=="Hammersley_QMC_Sampler":
+        samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
+        outFile.write("         <sampler type=\"hammersley\">\n")
+
+        sampleCount = cmds.intFieldGrp(samplerSettings[0], query=True, value1=True)
+        outFile.write("             <integer name=\"sampleCount\" value=\"" + str(sampleCount) + "\"/>\n")
+
+        scramble = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
+        outFile.write("             <integer name=\"scramble\" value=\"" + str(scramble) + "\"/>\n")
+
+    elif activeSampler=="Sobol_QMC_Sampler":
+        samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
+        outFile.write("         <sampler type=\"sobol\">\n")
+
+        sampleCount = cmds.intFieldGrp(samplerSettings[0], query=True, value1=True)
+        outFile.write("             <integer name=\"sampleCount\" value=\"" + str(sampleCount) + "\"/>\n")
+
+        scramble = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
+        outFile.write("             <integer name=\"scramble\" value=\"" + str(scramble) + "\"/>\n")
+
+    outFile.write("         </sampler>\n")
+    outFile.write("\n")
 
 '''
 Write sensor, which include camera, image sampler, and film
@@ -943,21 +1018,37 @@ def writeSensor(outFile):
     outFile.write("             <lookat target=\"" + str(camAim[0]) + " " + str(camAim[1]) + " " + str(camAim[2]) + "\" origin=\"" + str(camPos[0]) + " " + str(camPos[1]) + " " + str(camPos[2]) + "\" up=\"" + str(camUp[0]-camPos[0]) + " " + str(camUp[1]-camPos[1]) + " " + str(camUp[2]-camPos[2]) + "\"/>\n")
     outFile.write("         </transform>\n")
     outFile.write("\n")
-    outFile.write("         <sampler type=\"sobol\">\n")
-    outFile.write("             <integer name=\"sampleCount\" value=\"256\"/>\n")
-    outFile.write("             <integer name=\"scramble\" value=\"1\"/>\n")
-    outFile.write("         </sampler>\n")
-    outFile.write("\n")
+    
+    #write sampler generator:
+    writeSampler(outFile)
 
     #Film
     outFile.write("     <film type=\"ldrfilm\">\n")
+    
     #Resolution
     imageWidth = cmds.getAttr("defaultResolution.width")
     imageHeight = cmds.getAttr("defaultResolution.height")
-    print imageWidth, imageHeight
     outFile.write("         <integer name=\"height\" value=\"" + str(imageHeight) + "\"/>\n")
     outFile.write("         <integer name=\"width\" value=\"" + str(imageWidth) + "\"/>\n")
-    outFile.write("         <rfilter type=\"gaussian\"/>\n")
+
+    #Filter
+    global rfilter
+    rfilterValue = cmds.optionMenu(rfilter, query=True, value=True)
+    rfilterString = ""
+    if rfilterValue=="Box_filter":
+        rfilterString = "box"
+    if rfilterValue=="Tent_filter":
+        rfilterString = "tent"
+    if rfilterValue=="Gaussian_filter":
+        rfilterString = "gaussian"
+    if rfilterValue=="Mitchell_Netravali_filter":
+        rfilterString = "mitchell"
+    if rfilterValue=="Catmull_Rom_filter":
+        rfilterString = "catmullrom"
+    if rfilterValue=="Lanczos_filter":
+        rfilterString = "lanczos"
+
+    outFile.write("         <rfilter type=\"" + rfilterString + "\"/>\n")
     outFile.write("         <boolean name=\"banner\" value=\"false\"/>\n")
     outFile.write("     </film>\n")
     outFile.write(" </sensor>\n")
@@ -977,8 +1068,8 @@ def writeLights(outFile):
 
     if sunskyLights and areaLights or sunskyLights and len(sunskyLights)>1 or areaLights and len(areaLights)>1:
         print "Cannot specify more than one area light (MitsubaSunsky and MitsubaEnvironmentLight"
-        print "Defaulting to constant environment emitter"
-        outFile.write(" <emitter type=\"constant\"/>\n")
+        # print "Defaulting to constant environment emitter"
+        # outFile.write(" <emitter type=\"constant\"/>\n")
 
     for light in lights:
         lightType = cmds.nodeType(light)
@@ -1024,7 +1115,6 @@ def writeLights(outFile):
         skyScale = cmds.getAttr(sunsky+".skyScale")
         sunRadiusScale = cmds.getAttr(sunsky+".sunRadiusScale")
 
-
         print resolution
         outFile.write("     <float name=\"turbidity\" value=\"" + str(turbidity) + "\"/>\n")
         outFile.write("     <srgb name=\"albedo\" value=\"" + str(albedo[0][0]) + " " + str(albedo[0][1]) + " " + str(albedo[0][2]) + "\"/>\n")
@@ -1050,6 +1140,9 @@ def writeLights(outFile):
     if areaLights:
         envmap = areaLights[0]
         connections = cmds.listConnections(envmap, plugs=False, c=True)
+        fileName = ""
+        hasFile = False
+        correctFormat = False
 
         if connections:
             for i in range(len(connections)):
@@ -1059,11 +1152,10 @@ def writeLights(outFile):
                     if cmds.nodeType(inConnection) == "file":
                         fileName = cmds.getAttr(inConnection+".fileTextureName")
                         if fileName:
-                            print fileName
                             extension = fileName[len(fileName)-3:len(fileName)]
-                            print extension
                             if extension == "hdr" or extension == "exr":
-                                print "Write envmap bitch"
+                                hasFile = True
+                                correctFormat = True
                             else:
                                 print "file must be hdr or exr"
                         else:
@@ -1072,8 +1164,40 @@ def writeLights(outFile):
                         print "Source can only be an image file"
         else:
             print "Write constant"
+            correctFormat = True
+        
+        if correctFormat:
+            if hasFile:
+                print "envmap"
+                scale = cmds.getAttr(envmap+".scale")
+                gamma = cmds.getAttr(envmap+".gamma")
+                cache = cmds.getAttr(envmap+".cache")
+                samplingWeight = cmds.getAttr(envmap+".samplingWeight")
 
+                print scale, gamma, cache, samplingWeight, fileName
 
+                print outFile
+
+                outFile.write(" <emitter type=\"envmap\">\n")
+                outFile.write("     <string name=\"filename\" value=\"" + fileName + "\"/>\n")
+                outFile.write("     <float name=\"scale\" value=\"" + str(scale) + "\"/>\n")
+                outFile.write("     <float name=\"gamma\" value=\"" + str(gamma) + "\"/>\n")
+                if cache:
+                    outFile.write("     <boolean name=\"cache\" value=\"True\"/>\n")
+                else:
+                    outFile.write("     <boolean name=\"cache\" value=\"False\"/>\n")
+
+                outFile.write("     <float name=\"samplingWeight\" value=\"" + str(samplingWeight) + "\"/>\n")
+                outFile.write(" </emitter>\n")
+                print "finished"
+            else:
+                radiance = cmds.getAttr(envmap+".source")
+                samplingWeight = cmds.getAttr(envmap+".samplingWeight")
+                
+                outFile.write(" <emitter type=\"constant\">\n")
+                outFile.write("     <srgb name=\"radiance\" value=\"" + str(radiance[0][0]) + " " + str(radiance[0][0]) + " " + str(radiance[0][0]) + "\"/>\n")
+                outFile.write("     <float name=\"samplingWeight\" value=\"" + str(samplingWeight) + "\"/>\n")
+                outFile.write(" </emitter>\n")
 
 
 def writeGeometryAndMaterials(outFile, cwd):
@@ -1106,17 +1230,21 @@ def writeGeometryAndMaterials(outFile, cwd):
     outFile.write("<!-- End of materials -->")
     outFile.write("\n")
 
+    objFiles = []
+
     #Write each piece of geometry
     for geom in geoms:
         shader = getShader(geom)
         if cmds.nodeType(shader) in materialNodeTypes:
-            output = cwd+geom+".obj"
+            output = cwd+"/"+geom+".obj"
             cmds.select(geom)
-            cmds.file(output, op=True, typ="OBJexport", es=True, force=True)
+            objFiles.append(cmds.file(output, op=True, typ="OBJexport", options="groups=1;ptgroups=1;materials=0;smoothing=1;normals=1", exportSelected=True, force=True))
             outFile.write("    <shape type=\"obj\">\n")
             outFile.write("        <string name=\"filename\" value=\"" + geom + ".obj\"/>\n")
             outFile.write("        <ref id=\"" + shader + "\"/>\n")
             outFile.write("    </shape>\n")
+
+    return objFiles
 
 '''
 This registers a mel command to render with Mitsuba
@@ -1133,14 +1261,14 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
         userSelection = cmds.ls(sl=True)
         
         #Get the cwd
-        cwd = cmds.workspace(q=True, directory=True)
+        cwd = cmds.workspace(q=True, fn=True)
         print cwd
 
         ################################################################################
         #Mitsuba Scene Output###########################################################
         ################################################################################
         
-        outFileName = cwd+"temporary.xml"
+        outFileName = cwd + "/temporary.xml"
         outFile = open(outFileName, 'w+')
 
         #Scene stuff
@@ -1153,12 +1281,12 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
 
         #Write camera, sampler, and film
         writeSensor(outFile)
-                
+
         #Write lights
         writeLights(outFile)
 
         #Write geom and mats together since theyre inter-dependent
-        writeGeometryAndMaterials(outFile, cwd)
+        objFiles = writeGeometryAndMaterials(outFile, cwd)
             
         outFile.write("\n")
         outFile.write("</scene>")
@@ -1166,6 +1294,17 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
         ################################################################################
         ################################################################################
         ################################################################################
+
+        ################################################################################
+        #Call Mitsuba and delete temp files#############################################
+        ################################################################################
+
+
+
+        ################################################################################
+        ################################################################################
+        ################################################################################
+
 
         '''
         Now we need to either select the objects that the user had selected before
@@ -1236,7 +1375,7 @@ def uninitializePlugin(mobject):
     cmds.unloadPlugin("conductor.py")
     cmds.unloadPlugin("thindielectric.py")
     cmds.unloadPlugin("sunsky.py")
-    cmds.loadPlugin("envmap.py")
+    cmds.unloadPlugin("envmap.py")
     deletegui()
     try:
         mplugin.deregisterCommand( kPluginCmdName )
@@ -1256,6 +1395,8 @@ global integratorFrames
 
 global sampler
 global samplerFrames
+
+global rfilter
 
 global renderButton
 global fileNameField
@@ -1509,6 +1650,15 @@ def createRenderSettings():
 
     createSamplerFrames()
     cmds.optionMenu(sampler, edit=True, select=1)
+
+    global rfilter
+    rfilter = cmds.optionMenu(label="Film Reconstruction Filter")
+    cmds.menuItem("Box filter")
+    cmds.menuItem("Tent filter")
+    cmds.menuItem("Gaussian filter")
+    cmds.menuItem("Mitchell-Netravali filter")
+    cmds.menuItem("Catmull-Rom filter")
+    cmds.menuItem("Lanczos filter")
 
     global renderButton
     cmds.columnLayout(adjustableColumn=False)
