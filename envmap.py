@@ -32,7 +32,6 @@ def nodeInitializer():
                 nAttr.setStorable(1)
                 nAttr.setReadable(1)
                 nAttr.setWritable(1)
-                nAttr.setDefault(1.0,1.0,1.0)
 
                 envmap.mScale = nAttr.create("scale", "scale", OpenMaya.MFnNumericData.kFloat, 1.0)
                 nAttr.setKeyable(1) 

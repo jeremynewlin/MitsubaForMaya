@@ -10,6 +10,7 @@ kPluginNodeId = OpenMaya.MTypeId(0x8700B)
 class phong(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
+                mTwoSided = OpenMaya.MObject()
                 mSpecular = OpenMaya.MObject()
                 mDiffuse = OpenMaya.MObject()
                 mExponent = OpenMaya.MObject()
@@ -39,6 +40,12 @@ def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
 
         try:
+
+                phong.mTwoSided = nAttr.create("twosided", "tw", OpenMaya.MFnNumericData.kBoolean, True)
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
 
                 phong.mSpecular = nAttr.createColor("specularReflectance", "sr")
                 nAttr.setKeyable(1) 
@@ -71,6 +78,7 @@ def nodeInitializer():
                 raise
 
         try:
+                phong.addAttribute(phong.mTwoSided)
                 phong.addAttribute(phong.mSpecular)
                 phong.addAttribute(phong.mDiffuse)
                 phong.addAttribute(phong.mExponent)

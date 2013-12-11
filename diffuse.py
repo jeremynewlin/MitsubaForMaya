@@ -11,6 +11,7 @@ class diffuse(OpenMayaMPx.MPxNode):
                 OpenMayaMPx.MPxNode.__init__(self)
                 mOutColor = OpenMaya.MObject()
                 mReflectance = OpenMaya.MObject()
+                mTwoSided = OpenMaya.MObject()
 
         def compute(self, plug, block):
                 if plug == diffuse.mOutColor or plug.parent() == diffuse.mOutColor:
@@ -36,6 +37,12 @@ def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
 
         try:
+                diffuse.mTwoSided = nAttr.create("twosided", "tw", OpenMaya.MFnNumericData.kBoolean, True)
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
+
                 diffuse.mReflectance = nAttr.createColor("reflectance", "r")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
@@ -53,6 +60,7 @@ def nodeInitializer():
                 raise
 
         try:
+                diffuse.addAttribute(diffuse.mTwoSided)
                 diffuse.addAttribute(diffuse.mReflectance)
                 diffuse.addAttribute(diffuse.mOutColor)
         except:

@@ -10,6 +10,7 @@ kPluginNodeId = OpenMaya.MTypeId(0x87002)
 class conductor(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
+                mTwoSided = OpenMaya.MObject()
                 mMaterial = OpenMaya.MObject()
                 mEta = OpenMaya.MObject()
                 mK = OpenMaya.MObject()
@@ -38,6 +39,12 @@ def nodeInitializer():
         eAttr = OpenMaya.MFnEnumAttribute()
 
         try:
+
+                conductor.mTwoSided = nAttr.create("twosided", "tw", OpenMaya.MFnNumericData.kBoolean, True)
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
 
                 conductor.mMaterial = eAttr.create("material", "mat")
                 eAttr.setKeyable(1) 
@@ -99,6 +106,7 @@ def nodeInitializer():
                 raise
 
         try:
+                conductor.addAttribute(conductor.mTwoSided)
                 conductor.addAttribute(conductor.mMaterial)
                 conductor.addAttribute(conductor.mK)
                 conductor.addAttribute(conductor.mEta)

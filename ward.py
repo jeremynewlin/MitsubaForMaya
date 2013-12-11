@@ -10,6 +10,7 @@ kPluginNodeId = OpenMaya.MTypeId(0x8700C)
 class ward(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
+                mTwoSided = OpenMaya.MObject()
                 mSpecular = OpenMaya.MObject()
                 mDiffuse = OpenMaya.MObject()
 
@@ -42,6 +43,12 @@ def nodeInitializer():
         eAttr = OpenMaya.MFnEnumAttribute()
 
         try:
+
+                ward.mTwoSided = nAttr.create("twosided", "tw", OpenMaya.MFnNumericData.kBoolean, True)
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
 
                 ward.mVariant = eAttr.create("variant", "var")
                 eAttr.setKeyable(1) 
@@ -87,6 +94,7 @@ def nodeInitializer():
                 raise
 
         try:
+                ward.addAttribute(ward.mTwoSided)
                 ward.addAttribute(ward.mVariant)
                 ward.addAttribute(ward.mAlpaUV)
                 ward.addAttribute(ward.mSpecular)

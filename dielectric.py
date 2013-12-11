@@ -4,7 +4,7 @@ import maya.OpenMayaMPx as OpenMayaMPx
 import maya.cmds as cmds
 
 kPluginNodeName = "MitsubaDielectricShader"
-kPluginNodeClassify = "/shader/surface"
+kPluginNodeClassify = "shader/surface/"
 kPluginNodeId = OpenMaya.MTypeId(0x87004)
 
 class dielectric(OpenMayaMPx.MPxNode):

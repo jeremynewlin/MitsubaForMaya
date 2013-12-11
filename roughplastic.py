@@ -10,6 +10,7 @@ kPluginNodeId = OpenMaya.MTypeId(0x87000)
 class roughplastic(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
+                mTwoSided = OpenMaya.MObject()
                 mSpecular = OpenMaya.MObject()
                 mDiffuse = OpenMaya.MObject()
                 mIntIOR = OpenMaya.MObject()
@@ -45,6 +46,12 @@ def nodeInitializer():
         eAttr = OpenMaya.MFnEnumAttribute()
 
         try:
+
+                roughplastic.mTwoSided = nAttr.create("twosided", "tw", OpenMaya.MFnNumericData.kBoolean, True)
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
 
                 roughplastic.mDistribution = eAttr.create("distribution", "dist")
                 eAttr.setKeyable(1) 
@@ -101,6 +108,7 @@ def nodeInitializer():
                 raise
 
         try:
+                roughplastic.addAttribute(roughplastic.mTwoSided)
                 roughplastic.addAttribute(roughplastic.mDistribution)
                 roughplastic.addAttribute(roughplastic.mAlpha)
                 roughplastic.addAttribute(roughplastic.mSpecular)

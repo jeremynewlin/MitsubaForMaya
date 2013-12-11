@@ -9,6 +9,7 @@ kPluginNodeId = OpenMaya.MTypeId(0x8700A)
 class roughdiffuse(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
+                mTwoSided = OpenMaya.MObject()
                 mOutColor = OpenMaya.MObject()
                 mReflectance = OpenMaya.MObject()
                 mAlpha = OpenMaya.MObject()
@@ -38,6 +39,13 @@ def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
 
         try:
+
+                roughdiffuse.mTwoSided = nAttr.create("twosided", "tw", OpenMaya.MFnNumericData.kBoolean, True)
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
+
                 roughdiffuse.mReflectance = nAttr.createColor("reflectance", "r")
                 nAttr.setKeyable(1) 
                 nAttr.setStorable(1)
@@ -67,6 +75,7 @@ def nodeInitializer():
                 raise
 
         try:
+                roughdiffuse.addAttribute(roughdiffuse.mTwoSided)
                 roughdiffuse.addAttribute(roughdiffuse.mReflectance)
                 roughdiffuse.addAttribute(roughdiffuse.mAlpha)
                 roughdiffuse.addAttribute(roughdiffuse.mApprox)

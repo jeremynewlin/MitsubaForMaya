@@ -10,6 +10,7 @@ kPluginNodeId = OpenMaya.MTypeId(0x87006)
 class plastic(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
+                mTwoSided = OpenMaya.MObject()
                 mSpecular = OpenMaya.MObject()
                 mDiffuse = OpenMaya.MObject()
                 mIntIOR = OpenMaya.MObject()
@@ -40,6 +41,12 @@ def nodeInitializer():
         nAttr = OpenMaya.MFnNumericAttribute()
 
         try:
+
+                plastic.mTwoSided = nAttr.create("twosided", "tw", OpenMaya.MFnNumericData.kBoolean, True)
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
 
                 plastic.mSpecular = nAttr.createColor("specularReflectance", "sr")
                 nAttr.setKeyable(1) 
@@ -79,6 +86,7 @@ def nodeInitializer():
                 raise
 
         try:
+                plastic.addAttribute(plastic.mTwoSided)
                 plastic.addAttribute(plastic.mSpecular)
                 plastic.addAttribute(plastic.mDiffuse)
                 plastic.addAttribute(plastic.mIntIOR)

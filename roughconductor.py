@@ -10,6 +10,7 @@ kPluginNodeId = OpenMaya.MTypeId(0x87008)
 class roughconductor(OpenMayaMPx.MPxNode):
         def __init__(self):
                 OpenMayaMPx.MPxNode.__init__(self)
+                mTwoSided = OpenMaya.MObject()
                 mMaterial = OpenMaya.MObject()
                 mEta = OpenMaya.MObject()
                 mK = OpenMaya.MObject()
@@ -42,6 +43,12 @@ def nodeInitializer():
         eAttr = OpenMaya.MFnEnumAttribute()
 
         try:
+
+                roughconductor.mTwoSided = nAttr.create("twosided", "tw", OpenMaya.MFnNumericData.kBoolean, True)
+                nAttr.setKeyable(1) 
+                nAttr.setStorable(1)
+                nAttr.setReadable(1)
+                nAttr.setWritable(1)
 
                 roughconductor.mDistribution = eAttr.create("distribution", "dist")
                 eAttr.setKeyable(1) 
@@ -127,6 +134,7 @@ def nodeInitializer():
                 raise
 
         try:
+                roughconductor.addAttribute(roughconductor.mTwoSided)
                 roughconductor.addAttribute(roughconductor.mDistribution)
                 roughconductor.addAttribute(roughconductor.mAlpha)
                 roughconductor.addAttribute(roughconductor.mAlpaUV)

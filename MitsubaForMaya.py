@@ -950,13 +950,28 @@ def writeSensor(outFile):
     camAim = cmds.getAttr(rAim+".translate")[0]
     camUp  = cmds.getAttr(rUp+".translate")[0]
 
+    #Type
+    camType="perspective"
+    if cmds.getAttr(rCamShape+".depthOfField"):
+        camType="thinlens"
+
+    #dof stuff
+    apertureRadius = 1
+    focusDistance = 1
+    if camType=="thinlens":
+        apertureRadius = cmds.getAttr(rCamShape+".focusRegionScale")
+        focusDistance = cmds.getAttr(rCamShape+".focusDistance")
+
     #fov
     fov = cmds.camera(rCamShape, query=True, horizontalFieldOfView=True)
 
     #near clip plane
     nearClip = cmds.getAttr(rCamShape+".nearClipPlane")
 
-    outFile.write(" <sensor type=\"perspective\">\n")
+    outFile.write(" <sensor type=\"" + camType + "\">\n")
+    if camType=="thinlens":
+        outFile.write("         <float name=\"apertureRadius\" value=\"" + str(apertureRadius) + "\"/>\n")
+        outFile.write("         <float name=\"focusDistance\" value=\"" + str(focusDistance) + "\"/>\n")    
     outFile.write("         <float name=\"fov\" value=\"" + str(fov) + "\"/>\n")
     outFile.write("         <string name=\"fovAxis\" value=\"x\"/>\n")
     outFile.write("         <float name=\"nearClip\" value=\"" + str(nearClip) + "\"/>\n")
@@ -1276,7 +1291,7 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
         imagePrefix = cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
         imageName+=imagePrefix+".png"
 
-        # os.system(mtsDir+"/mitsuba.exe " + outFileName + " -o " + imageName)
+        os.system(mtsDir+"/mitsuba.exe " + outFileName + " -o " + imageName)
 
         global renderedImage
         cmds.image(renderedImage, edit=True, image=imageName)
@@ -1284,9 +1299,9 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
 
         #Delete all of the temp file we just made
         os.chdir(projectDir+"/scenes")
-        # os.remove(outFileName)
-        # for obj in objFiles:
-        #     os.remove(obj)
+        os.remove(outFileName)
+        for obj in objFiles:
+            os.remove(obj)
 
         ################################################################################
         ################################################################################
@@ -1655,7 +1670,7 @@ def createRenderSettings():
 def createRenderWindow():
     global renderWindow
     global renderedImage
-    renderWindow = cmds.window("Mitsuba Rendered Image", retain=True)
+    renderWindow = cmds.window("Mitsuba Rendered Image", retain=True, resizeToFitChildren=True)
     cmds.paneLayout()
     renderedImage = cmds.image()
 
@@ -1668,6 +1683,16 @@ def showRenderSettings(self):
 #Make the render window visible
 def showRenderWindow():
     global renderWindow
+    imageWidth = cmds.getAttr("defaultResolution.width")
+    imageHeight = cmds.getAttr("defaultResolution.height")
+    cmds.window(renderWindow, edit=True, widthHeight=(imageWidth, imageHeight))
+    cmds.showWindow(renderWindow)
+
+def showRenderWindowCC(self):
+    global renderWindow
+    imageWidth = cmds.getAttr("defaultResolution.width")
+    imageHeight = cmds.getAttr("defaultResolution.height")
+    cmds.window(renderWindow, edit=True, widthHeight=(imageWidth, imageHeight))
     cmds.showWindow(renderWindow)
 
 #Mel command to render with Mitsuba
@@ -1712,6 +1737,7 @@ def gui():
     global topLevel
     topLevel = cmds.menu( l="Mitsuba", p="MayaWindow", to=True)
     item = cmds.menuItem( p=topLevel, label='Render', c=showRenderSettings )
+    item = cmds.menuItem( p=topLevel, label='Render Window', c=showRenderWindowCC )
     createRenderSettings()
     createRenderWindow()
 
