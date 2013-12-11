@@ -31,13 +31,13 @@ def writeMedium(medium, outFile, tabbedSpace):
     if sigmaAS:
         sigmaA = cmds.getAttr(medium+".sigmaA")
         sigmaS = cmds.getAttr(medium+".sigmaS")
-        outFile.write(tabbedSpace + "      <srgb name=\"sigmaA\" value=\"" + str(sigmaA[0][0]) + " " + str(sigmaA[0][1]) + " " + str(sigmaA[0][2]) + "\"/>\n")
-        outFile.write(tabbedSpace + "      <srgb name=\"sigmaS\" value=\"" + str(sigmaS[0][0]) + " " + str(sigmaS[0][1]) + " " + str(sigmaS[0][2]) + "\"/>\n")
+        outFile.write(tabbedSpace + "      <rgb name=\"sigmaA\" value=\"" + str(sigmaA[0][0]) + " " + str(sigmaA[0][1]) + " " + str(sigmaA[0][2]) + "\"/>\n")
+        outFile.write(tabbedSpace + "      <rgb name=\"sigmaS\" value=\"" + str(sigmaS[0][0]) + " " + str(sigmaS[0][1]) + " " + str(sigmaS[0][2]) + "\"/>\n")
     else:
         sigmaT = cmds.getAttr(medium+".sigmaT")
         albedo = cmds.getAttr(medium+".albedo")
-        outFile.write(tabbedSpace + "      <srgb name=\"sigmaT\" value=\"" + str(sigmaT[0][0]) + " " + str(sigmaT[0][1]) + " " + str(sigmaT[0][2]) + "\"/>\n")
-        outFile.write(tabbedSpace + "      <srgb name=\"albedo\" value=\"" + str(albedo[0][0]) + " " + str(albedo[0][1]) + " " + str(albedo[0][2]) + "\"/>\n")
+        outFile.write(tabbedSpace + "      <rgb name=\"sigmaT\" value=\"" + str(sigmaT[0][0]) + " " + str(sigmaT[0][1]) + " " + str(sigmaT[0][2]) + "\"/>\n")
+        outFile.write(tabbedSpace + "      <rgb name=\"albedo\" value=\"" + str(albedo[0][0]) + " " + str(albedo[0][1]) + " " + str(albedo[0][2]) + "\"/>\n")
 
     scale = cmds.getAttr(medium+".scale")    
     outFile.write(tabbedSpace + "      <float name=\"scale\" value=\"" + str(scale) + "\"/>\n")
@@ -1160,15 +1160,16 @@ def writeGeometryAndMaterials(outFile, cwd):
 
     for transform in transforms:
         rels = cmds.listRelatives(transform)
-        for rel in rels:
-            if cmds.nodeType(rel)=="mesh":
-                visible = cmds.getAttr(transform+".visibility")
-                if cmds.attributeQuery("intermediateObject", node=transform, exists=True):
-                    visible = visible and not cmds.getAttr(transform+".intermediateObject")
-                if cmds.attributeQuery("overrideEnabled", node=transform, exists=True):
-                    visible = visible and cmds.getAttr(transform+".overrideVisibility")
-                if visible:
-                    geoms.append(transform)
+        if rels:
+            for rel in rels:
+                if cmds.nodeType(rel)=="mesh":
+                    visible = cmds.getAttr(transform+".visibility")
+                    if cmds.attributeQuery("intermediateObject", node=transform, exists=True):
+                        visible = visible and not cmds.getAttr(transform+".intermediateObject")
+                    if cmds.attributeQuery("overrideEnabled", node=transform, exists=True):
+                        visible = visible and cmds.getAttr(transform+".overrideVisibility")
+                    if visible:
+                        geoms.append(transform)
 
     #Write the material for each piece of geometry in the scene
     writtenMaterials = []
@@ -1299,9 +1300,9 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
 
         #Delete all of the temp file we just made
         os.chdir(projectDir+"/scenes")
-        os.remove(outFileName)
-        for obj in objFiles:
-            os.remove(obj)
+        # os.remove(outFileName)
+        # for obj in objFiles:
+            # os.remove(obj)
 
         ################################################################################
         ################################################################################
