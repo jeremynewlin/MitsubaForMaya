@@ -1,4 +1,5 @@
-import sys
+import sys, os
+import re
 import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
 import maya.cmds as cmds
@@ -23,7 +24,7 @@ Writes a homogeneous medium to a Mitsuba scene file (outFile)
 tabbedSpace is a string of blank space to account for recursive xml
 '''
 def writeMedium(medium, outFile, tabbedSpace):
-    outFile.write(tabbedSpace + " <medium type=\"homogeneous\"> id=\"" + medium + "\">\n")
+    outFile.write(tabbedSpace + " <medium type=\"homogeneous\" name=\"interior\">\n")
     
     #check if we want to use sigmaA and sigmaT or sigmaT and albedo
     sigmaAS = cmds.getAttr(medium+".sigmaAS")
@@ -46,21 +47,20 @@ def writeMedium(medium, outFile, tabbedSpace):
 Write a surface material (material) to a Mitsuba scene file (outFile)
 tabbedSpace is a string of blank space to account for recursive xml
 '''
-def writeShader(material, outFile, tabbedSpace):
+def writeShader(material, materialName, outFile, tabbedSpace):
     matType = cmds.nodeType(material)
     
     if matType=="MitsubaBumpShader":
         print "bump"
 
     elif matType=="MitsubaSmoothCoatingShader":
-        print "smooth coating"
         intIOR = cmds.getAttr(material+".intIOR")
         extIOR = cmds.getAttr(material+".extIOR")
         thickness = cmds.getAttr(material+".thickness")
         sigmaA = cmds.getAttr(material+".sigmaA")
         specularReflectance = cmds.getAttr(material+".specularReflectance")
 
-        outFile.write(tabbedSpace + " <bsdf type=\"coating\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"coating\" id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <float name=\"intIOR\" value=\"" + str(intIOR) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"extIOR\" value=\"" + str(extIOR) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"thickness\" value=\"" + str(thickness) + "\"/>\n")
@@ -80,50 +80,33 @@ def writeShader(material, outFile, tabbedSpace):
         outFile.write(tabbedSpace + " </bsdf>\n")
     
     elif matType=="MitsubaConductorShader":
-        print "conductor"
         conductorMaterial = cmds.getAttr(material+".material", asString=True)
         extEta = cmds.getAttr(material+".extEta")
-        outFile.write(tabbedSpace + " <bsdf type=\"conductor\"   id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"conductor\"   id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <string name=\"material\" value=\"" + str(conductorMaterial) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"extEta\" value=\"" + str(extEta) + "\"/>\n")
         outFile.write(tabbedSpace + " </bsdf>\n")
 
     elif matType=="MitsubaDielectricShader":
-        print "dielectric"
-        #check for a homogeneous material
-        #this checks if there is a homogeneous medium, and returns the attribute that it
-        #is connected to if there is one
-        connections = cmds.listConnections(material, type="HomogeneousParticipatingMedium", connections=True)
-        #We want to make sure it is connected to the ".material" attribute
-        hasMedium = False
-        medium = ""
-        if connections and connections[0]==material+".material":
-            hasMedium = True
-            medium = connections[1]
-
         #Get all of the required attributes
         intIOR = cmds.getAttr(material+".intIOR")
         extIOR = cmds.getAttr(material+".extIOR")
 
         #Write material
-        outFile.write(tabbedSpace + " <bsdf type=\"dielectric\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"dielectric\" id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <float name=\"intIOR\" value=\"" + str(intIOR) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"extIOR\" value=\"" + str(extIOR) + "\"/>\n")
         outFile.write(tabbedSpace + " </bsdf>\n\n")
-        if hasMedium:
-            writeMedium(medium, outFile, tabbedSpace)
 
     elif matType=="MitsubaDiffuseTransmitterShader":
-        print "difftrans"
         transmittance = cmds.getAttr(material+".reflectance")
-        outFile.write(tabbedSpace + " <bsdf type=\"diffuse\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"diffuse\" id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <srgb name=\"reflectance\" value=\"" + str(transmittance[0][0]) + " " + str(transmittance[0][1]) + " " + str(transmittance[0][2]) + "\"/>\n")
         outFile.write(tabbedSpace + " </bsdf>\n")
 
     elif matType=="MitsubaDiffuseShader":
-        print "diffuse"
         reflectance = cmds.getAttr(material+".reflectance")
-        outFile.write(tabbedSpace + " <bsdf type=\"diffuse\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"diffuse\" id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <srgb name=\"reflectance\" value=\"" + str(reflectance[0][0]) + " " + str(reflectance[0][1]) + " " + str(reflectance[0][2]) + "\"/>\n")
         outFile.write(tabbedSpace + " </bsdf>\n")
 
@@ -134,25 +117,23 @@ def writeShader(material, outFile, tabbedSpace):
         print "mixture"
 
     elif matType=="MitsubaPhongShader":
-        print "phong"
         exponent = cmds.getAttr(material+".exponent")
         specularReflectance = cmds.getAttr(material+".specularReflectance")
         diffuseReflectance = cmds.getAttr(material+".diffuseReflectance")
 
-        outFile.write(tabbedSpace + " <bsdf type=\"phong\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"phong\" id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <float name=\"exponent\" value=\"" + str(exponent) + "\"/>\n")
         outFile.write(tabbedSpace + "     <srgb name=\"specularReflectance\" value=\"" + str(specularReflectance[0][0]) + " " + str(specularReflectance[0][1]) + " " + str(specularReflectance[0][2]) + "\"/>\n")
         outFile.write(tabbedSpace + "     <srgb name=\"diffuseReflectance\" value=\"" + str(diffuseReflectance[0][0]) + " " + str(diffuseReflectance[0][1]) + " " + str(diffuseReflectance[0][2]) + "\"/>\n")
         outFile.write(tabbedSpace + " </bsdf>\n")
 
     elif matType=="MitsubaPlasticShader":
-        print "plastic"
         intIOR = cmds.getAttr(material+".intIOR")
         extIOR = cmds.getAttr(material+".extIOR")
         specularReflectance = cmds.getAttr(material+".specularReflectance")
         diffuseReflectance = cmds.getAttr(material+".diffuseReflectance")
 
-        outFile.write(tabbedSpace + " <bsdf type=\"plastic\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"plastic\" id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <float name=\"intIOR\" value=\"" + str(intIOR) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"extIOR\" value=\"" + str(extIOR) + "\"/>\n")
         outFile.write(tabbedSpace + "     <srgb name=\"specularReflectance\" value=\"" + str(specularReflectance[0][0]) + " " + str(specularReflectance[0][1]) + " " + str(specularReflectance[0][2]) + "\"/>\n")
@@ -161,7 +142,6 @@ def writeShader(material, outFile, tabbedSpace):
 
 
     elif matType=="MitsubaRoughCoatingShader":
-        print "roughcoating"
         distribution = cmds.getAttr(material+".distribution", asString=True)
         alpha = cmds.getAttr(material+".alpha")
         intIOR = cmds.getAttr(material+".intIOR")
@@ -170,7 +150,7 @@ def writeShader(material, outFile, tabbedSpace):
         sigmaA = cmds.getAttr(material+".sigmaA")
         specularReflectance = cmds.getAttr(material+".specularReflectance")
 
-        outFile.write(tabbedSpace + " <bsdf type=\"roughcoating\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"roughcoating\" id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <string name=\"distribution\" value=\"" + str(distribution) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"alpha\" value=\"" + str(alpha) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"intIOR\" value=\"" + str(intIOR) + "\"/>\n")
@@ -192,8 +172,7 @@ def writeShader(material, outFile, tabbedSpace):
         outFile.write(tabbedSpace + " </bsdf>\n")
 
     elif matType=="MitsubaRoughConductorShader":
-        print "rough conductor"
-        outFile.write(tabbedSpace + " <bsdf type=\"roughconductor\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"roughconductor\" id=\"" + materialName + "\">\n")
 
         distribution = cmds.getAttr(material+".distribution", asString=True)
         #We have different behaviour depending on the distribution
@@ -215,18 +194,6 @@ def writeShader(material, outFile, tabbedSpace):
         outFile.write(tabbedSpace + " </bsdf>\n")
 
     elif matType=="MitsubaRoughDielectricShader":
-        print "rough die"
-        #check for a homogeneous material
-        #this checks if there is a homogeneous medium, and returns the attribute that it
-        #is connected to if there is one
-        connections = cmds.listConnections(material, type="HomogeneousParticipatingMedium", connections=True)
-        #We want to make sure it is connected to the ".material" attribute
-        hasMedium = False
-        medium = ""
-        if connections and connections[0]==material+".material":
-            hasMedium = True
-            medium = connections[1]
-
         #Get all of the required attributes
         intIOR = cmds.getAttr(material+".intIOR")
         extIOR = cmds.getAttr(material+".extIOR")
@@ -234,7 +201,7 @@ def writeShader(material, outFile, tabbedSpace):
         specularTransmittance = cmds.getAttr(material+".specularTransmittance")
 
         #Write material
-        outFile.write(tabbedSpace + " <bsdf type=\"dielectric\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"dielectric\" id=\"" + materialName + "\">\n")
         
         distribution = cmds.getAttr(material+".distribution", asString=True)
         #We have different behaviour depending on the distribution
@@ -253,23 +220,19 @@ def writeShader(material, outFile, tabbedSpace):
         outFile.write(tabbedSpace + "     <srgb name=\"specularReflectance\" value=\"" + str(specularReflectance[0][0]) + " " + str(specularReflectance[0][1]) + " " + str(specularReflectance[0][2]) + "\"/>\n")
         outFile.write(tabbedSpace + "     <srgb name=\"specularTransmittance\" value=\"" + str(specularTransmittance[0][0]) + " " + str(specularTransmittance[0][1]) + " " + str(specularTransmittance[0][2]) + "\"/>\n")
         outFile.write(tabbedSpace + " </bsdf>\n\n")
-        if hasMedium:
-            writeMedium(medium, outFile, tabbedSpace)
 
     elif matType=="MitsubaRoughDiffuseShader":
-        print "rough diffuse"
         reflectance = cmds.getAttr(material+".reflectance")
         alpha = cmds.getAttr(material+".alpha")
         useFastApprox = cmds.getAttr(material+".useFastApprox")
 
-        outFile.write(tabbedSpace + " <bsdf type=\"roughdiffuse\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"roughdiffuse\" id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <srgb name=\"reflectance\" value=\"" + str(reflectance[0][0]) + " " + str(reflectance[0][1]) + " " + str(reflectance[0][2]) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"alpha\" value=\"" + str(alpha) + "\"/>\n")
         outFile.write(tabbedSpace + "     <boolean name=\"useFastApprox\" value=\"" + str(useFastApprox) + "\"/>\n")
         outFile.write(tabbedSpace + " </bsdf>\n")
 
     elif matType=="MitsubaRoughPlasticShader":
-        print "rough plastic"
         distribution = cmds.getAttr(material+".distribution", asString=True)
         alpha = cmds.getAttr(material+".alpha")
         intIOR = cmds.getAttr(material+".intIOR")
@@ -277,7 +240,7 @@ def writeShader(material, outFile, tabbedSpace):
         specularReflectance = cmds.getAttr(material+".specularReflectance")
         diffuseReflectance = cmds.getAttr(material+".diffuseReflectance")
 
-        outFile.write(tabbedSpace + " <bsdf type=\"roughplastic\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"roughplastic\" id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <string name=\"distribution\" value=\"" + str(distribution) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"alpha\" value=\"" + str(alpha) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"intIOR\" value=\"" + str(intIOR) + "\"/>\n")
@@ -287,33 +250,18 @@ def writeShader(material, outFile, tabbedSpace):
         outFile.write(tabbedSpace + " </bsdf>\n")
 
     elif matType=="MitsubaThinDielectricShader":
-        print "thin dielectric"
-        #check for a homogeneous material
-        #this checks if there is a homogeneous medium, and returns the attribute that it
-        #is connected to if there is one
-        connections = cmds.listConnections(material, type="HomogeneousParticipatingMedium", connections=True)
-        #We want to make sure it is connected to the ".material" attribute
-        hasMedium = False
-        medium = ""
-        if len(connections)>0 and connections[0]==material+".material":
-            hasMedium = True
-            medium = connections[1]
-
         #Get all of the required attributes
         intIOR = cmds.getAttr(material+".intIOR")
         extIOR = cmds.getAttr(material+".extIOR")
 
         #Write material
-        outFile.write(tabbedSpace + " <bsdf type=\"thindielectric\">\n id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"thindielectric\">\n id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <float name=\"intIOR\" value=\"" + str(intIOR) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"extIOR\" value=\"" + str(extIOR) + "\"/>\n")
         outFile.write(tabbedSpace + " </bsdf>\n\n")
-        if hasMedium:
-            writeMedium(medium, outFile, tabbedSpace)
 
     elif matType=="MitsubaTwoSidedShader":
-        print "twosided"
-        outFile.write(tabbedSpace + " <bsdf type=\"twosided\">\n id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"twosided\" id=\"" + materialName + "\">\n")
         #Nested bsdf
         connections = cmds.listConnections(material, connections=True)
         for i in range(len(connections)):
@@ -327,13 +275,12 @@ def writeShader(material, outFile, tabbedSpace):
         outFile.write(tabbedSpace + " </bsdf>\n")
 
     elif matType=="MitsubaWardShader":
-        print "ward"
         variant = cmds.getAttr(material+".variant", asString=True)
         alphaUV = cmds.getAttr(material+".alphaUV")
         specularReflectance = cmds.getAttr(material+".specularReflectance")
         diffuseReflectance = cmds.getAttr(material+".diffuseReflectance")
 
-        outFile.write(tabbedSpace + " <bsdf type=\"phong\" id=\"" + material + "\">\n")
+        outFile.write(tabbedSpace + " <bsdf type=\"phong\" id=\"" + materialName + "\">\n")
         outFile.write(tabbedSpace + "     <string name=\"variant\" value=\"" + str(variant) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"alphaU\" value=\"" + str(alphaUV[0][0]) + "\"/>\n")
         outFile.write(tabbedSpace + "     <float name=\"alphaV\" value=\"" + str(alphaUV[0][1]) + "\"/>\n")
@@ -357,7 +304,7 @@ def writeIntegrator(outFile):
         if cmds.frameLayout(frame, query=True, visible=True):
             activeSettings = frame
 
-    if activeIntegrator=="Ambient_Occlusion":
+    if activeIntegrator=="Ambient_Occlusion" or activeIntegrator=="Ambient Occlusion":
         '''
         The order for this integrator is:
         0. intFieldGrp shadingSamples
@@ -377,7 +324,7 @@ def writeIntegrator(outFile):
             outFile.write("     <integer name=\"rayLength\" value=\"" + str(rl) + "\"/>\n")
     
     #Write DI settings
-    elif activeIntegrator=="Direct_Illumination":
+    elif activeIntegrator=="Direct_Illumination" or activeIntegrator=="Direct Illumination":
         '''
         The order for this integrator is:
         0. intFieldGrp shadingSamples
@@ -409,7 +356,8 @@ def writeIntegrator(outFile):
             outFile.write("     <boolean name=\"hideEmitters\" value=\"false\"/>\n")
 
     #Write path tracer, volpaths settings
-    elif activeIntegrator=="Path_Tracer" or activeIntegrator=="Volumetric_Path_Tracer" or activeIntegrator=="Simple_Volumetric_Path_Tracer":
+    elif activeIntegrator=="Path_Tracer" or activeIntegrator=="Volumetric_Path_Tracer" or activeIntegrator=="Simple_Volumetric_Path_Tracer" \
+    or   activeIntegrator=="Path Tracer" or activeIntegrator=="Volumetric Path Tracer" or activeIntegrator=="Simple Volumetric Path Tracer":
         '''
         The order for this integrator is:
         0. checkBox to use infinite samples
@@ -418,9 +366,9 @@ def writeIntegrator(outFile):
         3. checkBox strictNormals
         4. checkBox hideEmitters
         '''
-        if activeIntegrator=="Path_Tracer":
+        if activeIntegrator=="Path_Tracer" or activeIntegrator=="Path Tracer":
             outFile.write(" <integrator type=\"path\">\n")
-        elif activeIntegrator=="Volumetric_Path_Tracer":
+        elif activeIntegrator=="Volumetric_Path_Tracer" or activeIntegrator=="Volumetric Path Tracer":
             outFile.write(" <integrator type=\"volpath\">\n")
         else:
             outFile.write(" <integrator type=\"volpath_simple\">\n")
@@ -447,7 +395,7 @@ def writeIntegrator(outFile):
             outFile.write("     <boolean name=\"hideEmitters\" value=\"false\"/>\n")
 
     #Write bdpt
-    elif activeIntegrator=="Bidirectional_Path_Tracer":
+    elif activeIntegrator=="Bidirectional_Path_Tracer" or activeIntegrator=="Bidirectional Path Tracer":
         '''
         The order for this integrator is:
         0. checkBox to use infinite samples
@@ -480,7 +428,7 @@ def writeIntegrator(outFile):
 
 
     #Write photon mapper
-    elif activeIntegrator=="Photon_Map":
+    elif activeIntegrator=="Photon_Map" or activeIntegrator=="Photon Map":
         '''
         The order for this integrator is:
         0. intFieldGrp directSamples
@@ -546,7 +494,7 @@ def writeIntegrator(outFile):
         outFile.write("     <integer name=\"rrDepth\" value=\"" + str(rrDepth) + "\"/>\n")    
 
     #Write progressive photon mapper
-    elif activeIntegrator=="Progressive_Photon_Map":
+    elif activeIntegrator=="Progressive_Photon_Map" or activeIntegrator=="Progressive Photon Map":
         '''
         The order for this integrator is:
         0. checkBox to use infinite depth
@@ -604,7 +552,7 @@ def writeIntegrator(outFile):
             outFile.write("     <integer name=\"maxPasses\" value=\"" + str(maxPasses) + "\"/>\n")
 
     #Write sppm
-    elif activeIntegrator=="Stochastic_Progressive_Photon_Map":
+    elif activeIntegrator=="Stochastic_Progressive_Photon_Map" or activeIntegrator=="Stochastic Progressive Photon Map":
         '''
         The order for this integrator is:
         0. checkBox to use infinite depth
@@ -662,7 +610,7 @@ def writeIntegrator(outFile):
             outFile.write("     <integer name=\"maxPasses\" value=\"" + str(maxPasses) + "\"/>\n")
 
     #Write pssmlt
-    elif activeIntegrator=="Primary_Sample_Space_Metropolis_Light_Transport":
+    elif activeIntegrator=="Primary_Sample_Space_Metropolis_Light_Transport" or activeIntegrator=="Primary Sample Space Metropolis Light Transport":
         '''
         The order for this integrator is:
         0. checkBox bidirectional
@@ -716,7 +664,7 @@ def writeIntegrator(outFile):
         outFile.write("     <float name=\"pLarge\" value=\"" + str(pLarge) + "\"/>\n")
 
     #Write psmlt
-    elif activeIntegrator=="Path_Space_Metropolis_Light_Transport":
+    elif activeIntegrator=="Path_Space_Metropolis_Light_Transport" or activeIntegrator=="Path Space Metropolis Light Transport":
         '''
         The order for this integrator is:
         0. checkBox to use infinite depth
@@ -790,7 +738,7 @@ def writeIntegrator(outFile):
         outFile.write("     <float name=\"lambda\" value=\"" + str(mtsLambda) + "\"/>\n")
 
     #Write erpt
-    elif activeIntegrator=="Energy_Redistribution_Path_Tracer":
+    elif activeIntegrator=="Energy_Redistribution_Path_Tracer" or activeIntegrator=="Energy Redistribution Path Tracer":
         '''
         The order for this integrator is:
         0. checkBox to use infinite depth
@@ -860,7 +808,7 @@ def writeIntegrator(outFile):
         outFile.write("     <float name=\"lambda\" value=\"" + str(mtsLambda) + "\"/>\n")\
 
     #Write ptracer
-    elif activeIntegrator=="Adjoint_Particle_Tracer":
+    elif activeIntegrator=="Adjoint_Particle_Tracer" or activeIntegrator=="Adjoint Particle Tracer":
         '''
         The order for this integrator is:
         0. checkBox to use infinite depth
@@ -896,7 +844,7 @@ def writeIntegrator(outFile):
             outFile.write("     <boolean name=\"hideEmitters\" value=\"false\"/>\n")
 
     #Write vpl
-    elif activeIntegrator=="Virtual_Point_Lights":
+    elif activeIntegrator=="Virtual_Point_Lights" or activeIntegrator=="Virtual Point Lights":
         print "vpl"
 
     outFile.write(" </integrator>\n\n\n")
@@ -910,21 +858,20 @@ def writeSampler(outFile):
     global sampler
 
     activeSampler = cmds.optionMenu(sampler, query=True, value=True)
-    print activeSampler
     activeSettings = samplerFrames[0]
 
     for frame in samplerFrames:
         if cmds.frameLayout(frame, query=True, visible=True):
             activeSettings = frame
 
-    if activeSampler=="Independent_Sampler":
+    if activeSampler=="Independent_Sampler" or activeSampler=="Independent Sampler":
         samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
         outFile.write("         <sampler type=\"independent\">\n")
 
         sampleCount = cmds.intFieldGrp(samplerSettings[0], query=True, value1=True)
         outFile.write("             <integer name=\"sampleCount\" value=\"" + str(sampleCount) + "\"/>\n")
 
-    elif activeSampler=="Stratified_Sampler":
+    elif activeSampler=="Stratified_Sampler" or activeSampler=="Stratified Sampler":
         samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
         outFile.write("         <sampler type=\"stratified\">\n")
 
@@ -934,7 +881,7 @@ def writeSampler(outFile):
         dimension = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
         outFile.write("             <integer name=\"dimension\" value=\"" + str(dimension) + "\"/>\n")
 
-    elif activeSampler=="Low_Discrepancy_Sampler":
+    elif activeSampler=="Low_Discrepancy_Sampler" or activeSampler=="Low_Discrepancy Sampler":
         samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
         outFile.write("         <sampler type=\"ldsampler\">\n")
 
@@ -944,7 +891,7 @@ def writeSampler(outFile):
         dimension = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
         outFile.write("             <integer name=\"dimension\" value=\"" + str(dimension) + "\"/>\n")
 
-    elif activeSampler=="Halton_QMC_Sampler":
+    elif activeSampler=="Halton_QMC_Sampler" or activeSampler=="Halton QMC Sampler":
         samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
         outFile.write("         <sampler type=\"halton\">\n")
 
@@ -954,7 +901,7 @@ def writeSampler(outFile):
         scramble = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
         outFile.write("             <integer name=\"scramble\" value=\"" + str(scramble) + "\"/>\n")
 
-    elif activeSampler=="Hammersley_QMC_Sampler":
+    elif activeSampler=="Hammersley_QMC_Sampler" or activeSampler=="Hammersley QMC Sampler":
         samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
         outFile.write("         <sampler type=\"hammersley\">\n")
 
@@ -964,7 +911,7 @@ def writeSampler(outFile):
         scramble = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
         outFile.write("             <integer name=\"scramble\" value=\"" + str(scramble) + "\"/>\n")
 
-    elif activeSampler=="Sobol_QMC_Sampler":
+    elif activeSampler=="Sobol_QMC_Sampler" or activeSampler=="Sobol QMC Sampler":
         samplerSettings = cmds.frameLayout(activeSettings, query=True, childArray=True)
         outFile.write("         <sampler type=\"sobol\">\n")
 
@@ -1004,7 +951,6 @@ def writeSensor(outFile):
     camUp  = cmds.getAttr(rUp+".translate")[0]
 
     #fov
-    print rCamShape
     fov = cmds.camera(rCamShape, query=True, horizontalFieldOfView=True)
 
     #near clip plane
@@ -1035,17 +981,17 @@ def writeSensor(outFile):
     global rfilter
     rfilterValue = cmds.optionMenu(rfilter, query=True, value=True)
     rfilterString = ""
-    if rfilterValue=="Box_filter":
+    if rfilterValue=="Box_filter" or rfilterValue=="Box filter":
         rfilterString = "box"
-    if rfilterValue=="Tent_filter":
+    if rfilterValue=="Tent_filter" or rfilterValue=="Tent filter":
         rfilterString = "tent"
-    if rfilterValue=="Gaussian_filter":
+    if rfilterValue=="Gaussian_filter" or rfilterValue=="Gaussian filter":
         rfilterString = "gaussian"
-    if rfilterValue=="Mitchell_Netravali_filter":
+    if rfilterValue=="Mitchell_Netravali_filter" or rfilterValue=="Mitchell-Netravali filter":
         rfilterString = "mitchell"
-    if rfilterValue=="Catmull_Rom_filter":
+    if rfilterValue=="Catmull_Rom_filter" or rfilterValue=="Catmull-Rom filter":
         rfilterString = "catmullrom"
-    if rfilterValue=="Lanczos_filter":
+    if rfilterValue=="Lanczos_filter" or rfilterValue=="Lanczos filter":
         rfilterString = "lanczos"
 
     outFile.write("         <rfilter type=\"" + rfilterString + "\"/>\n")
@@ -1062,18 +1008,13 @@ def writeLights(outFile):
     sunskyLights = cmds.ls(type="MitsubaSunsky")
     areaLights = cmds.ls(type="MitsubaEnvironmentLight")
 
-    if not lights and not sunskyLights and not areaLights:
-        print "No Mitsuba lighting present, defaulting to constant environment emitter"
-        outFile.write(" <emitter type=\"constant\"/>\n")
-
     if sunskyLights and areaLights or sunskyLights and len(sunskyLights)>1 or areaLights and len(areaLights)>1:
-        print "Cannot specify more than one area light (MitsubaSunsky and MitsubaEnvironmentLight"
+        print "Cannot specify more than one area light (MitsubaSunsky and MitsubaEnvironmentLight)"
         # print "Defaulting to constant environment emitter"
         # outFile.write(" <emitter type=\"constant\"/>\n")
 
     for light in lights:
         lightType = cmds.nodeType(light)
-        print lightType
         if lightType == "directionalLight":
             intensity = cmds.getAttr(light+".intensity")
             color = cmds.getAttr(light+".color")[0]
@@ -1115,7 +1056,6 @@ def writeLights(outFile):
         skyScale = cmds.getAttr(sunsky+".skyScale")
         sunRadiusScale = cmds.getAttr(sunsky+".sunRadiusScale")
 
-        print resolution
         outFile.write("     <float name=\"turbidity\" value=\"" + str(turbidity) + "\"/>\n")
         outFile.write("     <srgb name=\"albedo\" value=\"" + str(albedo[0][0]) + " " + str(albedo[0][1]) + " " + str(albedo[0][2]) + "\"/>\n")
         outFile.write("     <integer name=\"year\" value=\"" + str(date[0][0]) + "\"/>\n")
@@ -1142,7 +1082,7 @@ def writeLights(outFile):
         connections = cmds.listConnections(envmap, plugs=False, c=True)
         fileName = ""
         hasFile = False
-        correctFormat = False
+        correctFormat = True
 
         if connections:
             for i in range(len(connections)):
@@ -1155,26 +1095,22 @@ def writeLights(outFile):
                             extension = fileName[len(fileName)-3:len(fileName)]
                             if extension == "hdr" or extension == "exr":
                                 hasFile = True
-                                correctFormat = True
                             else:
                                 print "file must be hdr or exr"
+                                correctFormat = False
                         else:
                             print "Please supply a fileName if you plan to use an environment map"
+                            correctFormat = False
                     else:
                         print "Source can only be an image file"
-        else:
-            print "Write constant"
-            correctFormat = True
+                        correctFormat = False
         
         if correctFormat:
             if hasFile:
-                print "envmap"
                 scale = cmds.getAttr(envmap+".scale")
                 gamma = cmds.getAttr(envmap+".gamma")
                 cache = cmds.getAttr(envmap+".cache")
                 samplingWeight = cmds.getAttr(envmap+".samplingWeight")
-
-                print scale, gamma, cache, samplingWeight, fileName
 
                 print outFile
 
@@ -1183,21 +1119,24 @@ def writeLights(outFile):
                 outFile.write("     <float name=\"scale\" value=\"" + str(scale) + "\"/>\n")
                 outFile.write("     <float name=\"gamma\" value=\"" + str(gamma) + "\"/>\n")
                 if cache:
-                    outFile.write("     <boolean name=\"cache\" value=\"True\"/>\n")
+                    outFile.write("     <boolean name=\"cache\" value=\"true\"/>\n")
                 else:
-                    outFile.write("     <boolean name=\"cache\" value=\"False\"/>\n")
+                    outFile.write("     <boolean name=\"cache\" value=\"false\"/>\n")
 
                 outFile.write("     <float name=\"samplingWeight\" value=\"" + str(samplingWeight) + "\"/>\n")
                 outFile.write(" </emitter>\n")
-                print "finished"
             else:
                 radiance = cmds.getAttr(envmap+".source")
                 samplingWeight = cmds.getAttr(envmap+".samplingWeight")
                 
                 outFile.write(" <emitter type=\"constant\">\n")
-                outFile.write("     <srgb name=\"radiance\" value=\"" + str(radiance[0][0]) + " " + str(radiance[0][0]) + " " + str(radiance[0][0]) + "\"/>\n")
+                outFile.write("     <srgb name=\"radiance\" value=\"" + str(radiance[0][0]) + " " + str(radiance[0][1]) + " " + str(radiance[0][2]) + "\"/>\n")
                 outFile.write("     <float name=\"samplingWeight\" value=\"" + str(samplingWeight) + "\"/>\n")
                 outFile.write(" </emitter>\n")
+
+    outFile.write("\n")
+    outFile.write("<!-- End of lights -->")
+    outFile.write("\n\n\n")
 
 
 def writeGeometryAndMaterials(outFile, cwd):
@@ -1222,13 +1161,17 @@ def writeGeometryAndMaterials(outFile, cwd):
         material = getShader(geom)          #Gets the user define names of the shader
         if cmds.nodeType(material) in materialNodeTypes:
             if material not in writtenMaterials:
-                writeShader(material, outFile, "")  #Write the shader to the xml file
+                if "twosided" in cmds.listAttr(material) and cmds.getAttr(material+".twosided"):
+                    outFile.write("<bsdf type=\"twosided\" id=\"" + material + "\">\n")
+                    writeShader(material, material+"InnerMaterial", outFile, "    ")
+                    outFile.write("</bsdf>\n")
+                else:
+                    writeShader(material, material, outFile, "")  #Write the shader to the xml file
                 writtenMaterials.append(material)
-
-            
+        
     outFile.write("\n")
     outFile.write("<!-- End of materials -->")
-    outFile.write("\n")
+    outFile.write("\n\n\n")
 
     objFiles = []
 
@@ -1236,14 +1179,30 @@ def writeGeometryAndMaterials(outFile, cwd):
     for geom in geoms:
         shader = getShader(geom)
         if cmds.nodeType(shader) in materialNodeTypes:
-            output = cwd+"/"+geom+".obj"
+            output = cwd+"/scenes/"+geom+".obj"
             cmds.select(geom)
             objFiles.append(cmds.file(output, op=True, typ="OBJexport", options="groups=1;ptgroups=1;materials=0;smoothing=1;normals=1", exportSelected=True, force=True))
             outFile.write("    <shape type=\"obj\">\n")
             outFile.write("        <string name=\"filename\" value=\"" + geom + ".obj\"/>\n")
             outFile.write("        <ref id=\"" + shader + "\"/>\n")
-            outFile.write("    </shape>\n")
+            
+            #check for a homogeneous material
+            #this checks if there is a homogeneous medium, and returns the attribute that it
+            #is connected to if there is one
+            connections = cmds.listConnections(shader, type="HomogeneousParticipatingMedium", connections=True)
+            #We want to make sure it is connected to the ".material" attribute
+            hasMedium = False
+            medium = ""
+            if connections and connections[0]==shader+".material":
+                hasMedium = True
+                medium = connections[1]
+            if hasMedium:
+                writeMedium(medium, outFile, "    ")
 
+            outFile.write("    </shape>\n\n")
+
+    outFile.write("<!-- End of geometry -->")
+    outFile.write("\n\n\n")
     return objFiles
 
 '''
@@ -1262,13 +1221,13 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
         
         #Get the cwd
         cwd = cmds.workspace(q=True, fn=True)
-        print cwd
+        # print cwd
 
         ################################################################################
         #Mitsuba Scene Output###########################################################
         ################################################################################
         
-        outFileName = cwd + "/temporary.xml"
+        outFileName = cwd + "/scenes/temporary.xml"
         outFile = open(outFileName, 'w+')
 
         #Scene stuff
@@ -1299,12 +1258,39 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
         #Call Mitsuba and delete temp files#############################################
         ################################################################################
 
+        # os.chdir(cwd)
+        projectDir = cwd
+        dirList = re.split(r'/', projectDir)
+        mayaDir = ""
 
+        for i in range(len(dirList)-2):
+            mayaDir+=dirList[i]+"/"
+
+        version = cmds.about(v=True).replace(" ", "-")
+
+        pluginDir = mayaDir + version + "/plug-ins"
+        mtsDir = pluginDir + "/mitsuba"
+
+        os.chdir(mtsDir)
+        imageName = projectDir + "/images/"
+        imagePrefix = cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
+        imageName+=imagePrefix+".png"
+
+        # os.system(mtsDir+"/mitsuba.exe " + outFileName + " -o " + imageName)
+
+        global renderedImage
+        cmds.image(renderedImage, edit=True, image=imageName)
+        showRenderWindow()
+
+        #Delete all of the temp file we just made
+        os.chdir(projectDir+"/scenes")
+        # os.remove(outFileName)
+        # for obj in objFiles:
+        #     os.remove(obj)
 
         ################################################################################
         ################################################################################
         ################################################################################
-
 
         '''
         Now we need to either select the objects that the user had selected before
@@ -1322,28 +1308,28 @@ def cmdCreator():
 # Initialize the script plug-in
 def initializePlugin(mobject):
     mplugin = OpenMayaMPx.MFnPlugin(mobject)
-    cmds.loadPlugin("diffuse.py")
-    cmds.loadPlugin("dielectric.py")
-    cmds.loadPlugin("twosided.py")
+    # cmds.loadPlugin("diffuse.py")
+    # cmds.loadPlugin("dielectric.py")
+    # cmds.loadPlugin("twosided.py")
     # cmds.loadPlugin("sampler.py")
     # cmds.loadPlugin("mask.py")
     # cmds.loadPlugin("mixturebsdf.py")
     # cmds.loadPlugin("bump.py")
-    cmds.loadPlugin("roughplastic.py")
-    cmds.loadPlugin("roughcoating.py")
-    cmds.loadPlugin("coating.py")
-    cmds.loadPlugin("difftrans.py")
-    cmds.loadPlugin("ward.py")
-    cmds.loadPlugin("phong.py")
-    cmds.loadPlugin("roughdiffuse.py")
-    cmds.loadPlugin("roughdielectric.py")
-    cmds.loadPlugin("roughconductor.py")
-    cmds.loadPlugin("plastic.py")
-    cmds.loadPlugin("homogeneous.py")
-    cmds.loadPlugin("conductor.py")
-    cmds.loadPlugin("thindielectric.py")
-    cmds.loadPlugin("sunsky.py")
-    cmds.loadPlugin("envmap.py")
+    # cmds.loadPlugin("roughplastic.py")
+    # cmds.loadPlugin("roughcoating.py")
+    # cmds.loadPlugin("coating.py")
+    # cmds.loadPlugin("difftrans.py")
+    # cmds.loadPlugin("ward.py")
+    # cmds.loadPlugin("phong.py")
+    # cmds.loadPlugin("roughdiffuse.py")
+    # cmds.loadPlugin("roughdielectric.py")
+    # cmds.loadPlugin("roughconductor.py")
+    # cmds.loadPlugin("plastic.py")
+    # cmds.loadPlugin("homogeneous.py")
+    # cmds.loadPlugin("conductor.py")
+    # cmds.loadPlugin("thindielectric.py")
+    # cmds.loadPlugin("sunsky.py")
+    # cmds.loadPlugin("envmap.py")
     gui()
     try:
         mplugin.registerCommand( kPluginCmdName, cmdCreator )
@@ -1354,28 +1340,28 @@ def initializePlugin(mobject):
 # Uninitialize the script plug-in
 def uninitializePlugin(mobject):
     mplugin = OpenMayaMPx.MFnPlugin(mobject)
-    cmds.unloadPlugin("diffuse.py")
-    cmds.unloadPlugin("dielectric.py")
-    cmds.unloadPlugin("twosided.py")
+    # cmds.unloadPlugin("diffuse.py")
+    # cmds.unloadPlugin("dielectric.py")
+    # cmds.unloadPlugin("twosided.py")
     # cmds.unloadPlugin("sampler.py")
     # cmds.unloadPlugin("mask.py")
     # cmds.unloadPlugin("mixturebsdf.py")
     # cmds.unloadPlugin("bump.py")
-    cmds.unloadPlugin("roughplastic.py")
-    cmds.unloadPlugin("roughcoating.py")
-    cmds.unloadPlugin("coating.py")
-    cmds.unloadPlugin("difftrans.py")
-    cmds.unloadPlugin("ward.py")
-    cmds.unloadPlugin("phong.py")
-    cmds.unloadPlugin("roughdiffuse.py")
-    cmds.unloadPlugin("roughdielectric.py")
-    cmds.unloadPlugin("roughconductor.py")
-    cmds.unloadPlugin("plastic.py")
-    cmds.unloadPlugin("homogeneous.py")
-    cmds.unloadPlugin("conductor.py")
-    cmds.unloadPlugin("thindielectric.py")
-    cmds.unloadPlugin("sunsky.py")
-    cmds.unloadPlugin("envmap.py")
+    # cmds.unloadPlugin("roughplastic.py")
+    # cmds.unloadPlugin("roughcoating.py")
+    # cmds.unloadPlugin("coating.py")
+    # cmds.unloadPlugin("difftrans.py")
+    # cmds.unloadPlugin("ward.py")
+    # cmds.unloadPlugin("phong.py")
+    # cmds.unloadPlugin("roughdiffuse.py")
+    # cmds.unloadPlugin("roughdielectric.py")
+    # cmds.unloadPlugin("roughconductor.py")
+    # cmds.unloadPlugin("plastic.py")
+    # cmds.unloadPlugin("homogeneous.py")
+    # cmds.unloadPlugin("conductor.py")
+    # cmds.unloadPlugin("thindielectric.py")
+    # cmds.unloadPlugin("sunsky.py")
+    # cmds.unloadPlugin("envmap.py")
     deletegui()
     try:
         mplugin.deregisterCommand( kPluginCmdName )
@@ -1388,6 +1374,8 @@ def uninitializePlugin(mobject):
 
 #Main render settings window
 global renderSettingsWindow
+global renderWindow
+global renderedImage
 #Handle to the active integrator
 global integrator
 #List of possible integrators (stored as frameLayouts)
@@ -1422,7 +1410,7 @@ def createIntegratorFrames():
     cmds.setParent('..')
 
     pSettings = cmds.frameLayout(label="Path Tracer", cll=True)
-    cmds.checkBox("Use infinite samples")
+    cmds.checkBox("Use infinite depth", value=True)
     cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
     cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=1)
     cmds.checkBox(label = "strictNormals")
@@ -1430,7 +1418,7 @@ def createIntegratorFrames():
     cmds.setParent('..')
 
     vpsSettings = cmds.frameLayout(label="Simple Volumetric Path Tracer", cll=True, visible=False)
-    cmds.checkBox("Use infinite samples")
+    cmds.checkBox("Use infinite depth", value=True)
     cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
     cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=1)
     cmds.checkBox(label = "strictNormals")
@@ -1438,7 +1426,7 @@ def createIntegratorFrames():
     cmds.setParent('..')
 
     vpSettings = cmds.frameLayout(label="Volumetric Path Tracer", cll=True, visible=False)
-    cmds.checkBox("Use infinite samples")
+    cmds.checkBox("Use infinite depth", value=True)
     cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
     cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=1)
     cmds.checkBox(label = "strictNormals")
@@ -1446,7 +1434,7 @@ def createIntegratorFrames():
     cmds.setParent('..')
 
     bdptSettings = cmds.frameLayout(label="Bidirectional Path Tracer", cll=True, visible=False)
-    cmds.checkBox(label = "Use infinite samples")
+    cmds.checkBox(label = "Use infinite depth", value=True)
     cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
     cmds.checkBox(label = "lightImage")
     cmds.checkBox(label = "sampleDirect")
@@ -1456,7 +1444,7 @@ def createIntegratorFrames():
     pmSettings = cmds.frameLayout(label="Photon Map", cll=True, visible=False)
     cmds.intFieldGrp(numberOfFields=1, label="directSamples", value1=16)
     cmds.intFieldGrp(numberOfFields=1, label="glossySamples", value1=32)
-    cmds.checkBox(label = "Use infinite samples")
+    cmds.checkBox(label = "Use infinite depth", value=True)
     cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
     cmds.intFieldGrp(numberOfFields=1, label="globalPhotons", value1=250000)
     cmds.intFieldGrp(numberOfFields=1, label="causticPhotons", value1=250000)
@@ -1471,7 +1459,7 @@ def createIntegratorFrames():
     cmds.setParent('..')
 
     ppmSettings = cmds.frameLayout(label="Progressive Photon Map", cll=True, visible=False)
-    cmds.checkBox(label = "Use infinite depth")
+    cmds.checkBox(label = "Use infinite depth", value=True)
     cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
     cmds.intFieldGrp(numberOfFields=1, label="photonCount", value1=250000)
     cmds.checkBox(label = "Automatically decide initialRadius")
@@ -1486,7 +1474,7 @@ def createIntegratorFrames():
     cmds.setParent('..')
 
     sppmSettings = cmds.frameLayout(label="Stochastic Progressive Photon Map", cll=True, visible=False)
-    cmds.checkBox(label = "Use infinite depth")
+    cmds.checkBox(label = "Use infinite depth", value=True)
     cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
     cmds.intFieldGrp(numberOfFields=1, label="photonCount", value1=250000)
     cmds.checkBox(label = "Automatically decide initialRadius")
@@ -1502,7 +1490,7 @@ def createIntegratorFrames():
 
     pssmltSettings = cmds.frameLayout(label="Primary Sample Space Metropolis Light Transport", cll=True, visible=False)
     cmds.checkBox(label = "bidirectional")
-    cmds.checkBox(label = "Use infinite depth")
+    cmds.checkBox(label = "Use infinite depth", value=True)
     cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
     cmds.checkBox(label = "Use automatic direct samples")
     cmds.intFieldGrp(numberOfFields=1, label="directSamples", value1=16)
@@ -1514,7 +1502,7 @@ def createIntegratorFrames():
     cmds.setParent('..')
 
     mltSettings = cmds.frameLayout(label="Path Space Metropolis Light Transport", cll=True, visible=False)
-    cmds.checkBox(label = "Use infinite depth")
+    cmds.checkBox(label = "Use infinite depth", value=True)
     cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
     cmds.checkBox(label = "Use automatic direct samples")
     cmds.intFieldGrp(numberOfFields=1, label="directSamples", value1=16)
@@ -1530,7 +1518,7 @@ def createIntegratorFrames():
     cmds.setParent('..')
 
     erptSettings = cmds.frameLayout(label="Energy Redistribution Path Tracer", cll=True, visible=False)
-    cmds.checkBox(label = "Use infinite depth")
+    cmds.checkBox(label = "Use infinite depth", value=True)
     cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
     cmds.floatFieldGrp(numberOfFields=1, label="numChains", value1=1.0)
     cmds.checkBox(label = "Enable max chains", value=False)
@@ -1546,7 +1534,7 @@ def createIntegratorFrames():
     cmds.setParent('..')
 
     ptrSettings = cmds.frameLayout(label="Adjoint Particle Tracer", cll=True, visible=False)
-    cmds.checkBox(label = "Use infinite depth")
+    cmds.checkBox(label = "Use infinite depth", value=True)
     cmds.intFieldGrp(numberOfFields=1, label="maxDepth", value1=1)
     cmds.intFieldGrp(numberOfFields=1, label="rrDepth", value1=5)
     cmds.intFieldGrp(numberOfFields=1, label="granularity", value1=200000)
@@ -1664,10 +1652,23 @@ def createRenderSettings():
     cmds.columnLayout(adjustableColumn=False)
     renderButton = cmds.button(label='Render', command=callMitsuba)
 
+def createRenderWindow():
+    global renderWindow
+    global renderedImage
+    renderWindow = cmds.window("Mitsuba Rendered Image", retain=True)
+    cmds.paneLayout()
+    renderedImage = cmds.image()
+
+
 #Make the render settings window visible
 def showRenderSettings(self):
     global renderSettingsWindow
     cmds.showWindow(renderSettingsWindow)
+
+#Make the render window visible
+def showRenderWindow():
+    global renderWindow
+    cmds.showWindow(renderWindow)
 
 #Mel command to render with Mitsuba
 def callMitsuba(self):
@@ -1686,8 +1687,8 @@ def changeIntegrator(self):
     #Set all other integrator frameLayout to be invisible
     for frame in integratorFrames:
         currentIntegrator = cmds.frameLayout(frame, query=True, label=True)
-        currentIntegrator = currentIntegrator.replace(" ", "_")
-        if currentIntegrator == selectedIntegrator:
+        currentIntegratorUnderscore = currentIntegrator.replace(" ", "_")
+        if currentIntegrator == selectedIntegrator or currentIntegratorUnderscore == selectedIntegrator:
             cmds.frameLayout(frame, edit=True, visible=True)
         else:
             cmds.frameLayout(frame, edit=True, visible=False) 
@@ -1700,8 +1701,8 @@ def changeSampler(self):
     #Set all other sampler frameLayout to be invisible
     for frame in samplerFrames:
         currentSampler = cmds.frameLayout(frame, query=True, label=True)
-        currentSampler = currentSampler.replace(" ", "_")
-        if currentSampler == selectedSampler:
+        currentSamplerUnderscore = currentSampler.replace(" ", "_")
+        if currentSampler == selectedSampler or currentSamplerUnderscore == selectedSampler:
             cmds.frameLayout(frame, edit=True, visible=True)
         else:
             cmds.frameLayout(frame, edit=True, visible=False) 
@@ -1712,8 +1713,10 @@ def gui():
     topLevel = cmds.menu( l="Mitsuba", p="MayaWindow", to=True)
     item = cmds.menuItem( p=topLevel, label='Render', c=showRenderSettings )
     createRenderSettings()
+    createRenderWindow()
 
 
 def deletegui():
     cmds.deleteUI( topLevel )
     cmds.deleteUI( renderSettingsWindow )
+    cmds.deleteUI( renderWindow )
