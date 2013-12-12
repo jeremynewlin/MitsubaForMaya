@@ -68,6 +68,7 @@ def writeShader(material, materialName, outFile, tabbedSpace):
         outFile.write(tabbedSpace + "     <srgb name=\"specularReflectance\" value=\"" + str(specularReflectance[0][0]) + " " + str(specularReflectance[0][1]) + " " + str(specularReflectance[0][2]) + "\"/>\n")
         
         #Nested bsdf
+        hasNestedBSDF = False
         connections = cmds.listConnections(material, connections=True)
         for i in range(len(connections)):
             if i%2==1:
@@ -75,7 +76,15 @@ def writeShader(material, materialName, outFile, tabbedSpace):
                 connectionType = cmds.nodeType(connection)
                 if connectionType in materialNodeTypes and connections[i-1]==material+".bsdf":
                     #We've found the nested bsdf, so write it
-                    writeShader(connection, outFile, tabbedSpace+"    ")
+                    writeShader(connection, connection, outFile, tabbedSpace+"    ")
+                    hasNestedBSDF = True
+
+        if not hasNestedBSDF:
+            #Write a basic diffuse using the bsdf attribute
+            bsdf = cmds.getAttr(material+".bsdf")
+            outFile.write(tabbedSpace + "     <bsdf type=\"diffuse\">\n")
+            outFile.write(tabbedSpace + "          <srgb name=\"reflectance\" value=\"" + str(bsdf[0][0]) + " " + str(bsdf[0][1]) + " " + str(bsdf[0][2]) + "\"/>\n")
+            outFile.write(tabbedSpace + "     </bsdf>\n")
 
         outFile.write(tabbedSpace + " </bsdf>\n")
     
@@ -160,6 +169,7 @@ def writeShader(material, materialName, outFile, tabbedSpace):
         outFile.write(tabbedSpace + "     <srgb name=\"specularReflectance\" value=\"" + str(specularReflectance[0][0]) + " " + str(specularReflectance[0][1]) + " " + str(specularReflectance[0][2]) + "\"/>\n")
         
         #Nested bsdf
+        hasNestedBSDF = False
         connections = cmds.listConnections(material, connections=True)
         for i in range(len(connections)):
             if i%2==1:
@@ -167,7 +177,15 @@ def writeShader(material, materialName, outFile, tabbedSpace):
                 connectionType = cmds.nodeType(connection)
                 if connectionType in materialNodeTypes and connections[i-1]==material+".bsdf":
                     #We've found the nested bsdf, so write it
-                    writeShader(connection, outFile, tabbedSpace+"    ")
+                    writeShader(connection, connection, outFile, tabbedSpace+"    ")
+                    hasNestedBSDF=True
+        
+        if not hasNestedBSDF:
+            #Write a basic diffuse using the bsdf attribute
+            bsdf = cmds.getAttr(material+".bsdf")
+            outFile.write(tabbedSpace + "     <bsdf type=\"diffuse\">\n")
+            outFile.write(tabbedSpace + "          <srgb name=\"reflectance\" value=\"" + str(bsdf[0][0]) + " " + str(bsdf[0][1]) + " " + str(bsdf[0][2]) + "\"/>\n")
+            outFile.write(tabbedSpace + "     </bsdf>\n")
 
         outFile.write(tabbedSpace + " </bsdf>\n")
 
@@ -287,7 +305,6 @@ def writeShader(material, materialName, outFile, tabbedSpace):
         outFile.write(tabbedSpace + "     <srgb name=\"specularReflectance\" value=\"" + str(specularReflectance[0][0]) + " " + str(specularReflectance[0][1]) + " " + str(specularReflectance[0][2]) + "\"/>\n")
         outFile.write(tabbedSpace + "     <srgb name=\"diffuseReflectance\" value=\"" + str(diffuseReflectance[0][0]) + " " + str(diffuseReflectance[0][1]) + " " + str(diffuseReflectance[0][2]) + "\"/>\n")
         outFile.write(tabbedSpace + " </bsdf>\n")
-        print "end of ward"
 
 '''
 Write the appropriate integrator
@@ -1127,8 +1144,6 @@ def writeLights(outFile):
                 cache = cmds.getAttr(envmap+".cache")
                 samplingWeight = cmds.getAttr(envmap+".samplingWeight")
 
-                print outFile
-
                 outFile.write(" <emitter type=\"envmap\">\n")
                 outFile.write("     <string name=\"filename\" value=\"" + fileName + "\"/>\n")
                 outFile.write("     <float name=\"scale\" value=\"" + str(scale) + "\"/>\n")
@@ -1244,65 +1259,132 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
         ################################################################################
         
         outFileName = cwd + "/scenes/temporary.xml"
-        outFile = open(outFileName, 'w+')
-
-        #Scene stuff
-        outFile.write("<?xml version=\'1.0\' encoding=\'utf-8\'?>\n")
-        outFile.write("\n")
-        outFile.write("<scene version=\"0.4.0\">\n")
-
-        #Write integrator
-        writeIntegrator(outFile)
-
-        #Write camera, sampler, and film
-        writeSensor(outFile)
-
-        #Write lights
-        writeLights(outFile)
-
-        #Write geom and mats together since theyre inter-dependent
-        objFiles = writeGeometryAndMaterials(outFile, cwd)
+        
+        #Try to do animation jesus
+        if cmds.getAttr("defaultRenderGlobals.animation"):
+            startFrame = cmds.getAttr("defaultRenderGlobals.startFrame")
+            endFrame = cmds.getAttr("defaultRenderGlobals.endFrame")
+            byFrame = cmds.getAttr("defaultRenderGlobals.byFrameStep")
             
-        outFile.write("\n")
-        outFile.write("</scene>")
-        outFile.close()
-        ################################################################################
-        ################################################################################
-        ################################################################################
+            for frame in range(startFrame, endFrame+1, byFrame):
 
-        ################################################################################
-        #Call Mitsuba and delete temp files#############################################
-        ################################################################################
+                print "Rendering frame " + str(frame)
+        
+                outFile = open(outFileName, 'w+')
 
-        # os.chdir(cwd)
-        projectDir = cwd
-        dirList = re.split(r'/', projectDir)
-        mayaDir = ""
+                #Scene stuff
+                outFile.write("<?xml version=\'1.0\' encoding=\'utf-8\'?>\n")
+                outFile.write("\n")
+                outFile.write("<scene version=\"0.4.0\">\n")
 
-        for i in range(len(dirList)-2):
-            mayaDir+=dirList[i]+"/"
+                #Write integrator
+                writeIntegrator(outFile)
 
-        version = cmds.about(v=True).replace(" ", "-")
+                #Write camera, sampler, and film
+                writeSensor(outFile)
 
-        pluginDir = mayaDir + version + "/plug-ins"
-        mtsDir = pluginDir + "/mitsuba"
+                #Write lights
+                writeLights(outFile)
 
-        os.chdir(mtsDir)
-        imageName = projectDir + "/images/"
-        imagePrefix = cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
-        imageName+=imagePrefix+".png"
+                #Write geom and mats together since theyre inter-dependent
+                objFiles = writeGeometryAndMaterials(outFile, cwd)
+                    
+                outFile.write("\n")
+                outFile.write("</scene>")
+                outFile.close()
+                ################################################################################
+                ################################################################################
+                ################################################################################
 
-        os.system(mtsDir+"/mitsuba.exe " + outFileName + " -o " + imageName)
+                ################################################################################
+                #Call Mitsuba and delete temp files#############################################
+                ################################################################################
 
-        global renderedImage
-        cmds.image(renderedImage, edit=True, image=imageName)
-        showRenderWindow()
+                # os.chdir(cwd)
+                projectDir = cwd
+                dirList = re.split(r'/', projectDir)
+                mayaDir = ""
 
-        #Delete all of the temp file we just made
-        os.chdir(projectDir+"/scenes")
-        # os.remove(outFileName)
-        # for obj in objFiles:
-            # os.remove(obj)
+                for i in range(len(dirList)-2):
+                    mayaDir+=dirList[i]+"/"
+
+                version = cmds.about(v=True).replace(" ", "-")
+
+                pluginDir = mayaDir + version + "/plug-ins"
+                mtsDir = pluginDir + "/mitsuba"
+
+                os.chdir(mtsDir)
+                imageName = projectDir + "/images/"
+                imagePrefix = cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
+                imageName+=imagePrefix + str(frame).zfill(3) +".png"
+
+                os.system(mtsDir+"/mitsuba.exe " + outFileName + " -o " + imageName)
+
+                #Delete all of the temp file we just made
+                os.chdir(projectDir+"/scenes")
+                os.remove(outFileName)
+                for obj in objFiles:
+                    os.remove(obj)
+        else:
+            outFile = open(outFileName, 'w+')
+
+            #Scene stuff
+            outFile.write("<?xml version=\'1.0\' encoding=\'utf-8\'?>\n")
+            outFile.write("\n")
+            outFile.write("<scene version=\"0.4.0\">\n")
+
+            #Write integrator
+            writeIntegrator(outFile)
+
+            #Write camera, sampler, and film
+            writeSensor(outFile)
+
+            #Write lights
+            writeLights(outFile)
+
+            #Write geom and mats together since theyre inter-dependent
+            objFiles = writeGeometryAndMaterials(outFile, cwd)
+                
+            outFile.write("\n")
+            outFile.write("</scene>")
+            outFile.close()
+            ################################################################################
+            ################################################################################
+            ################################################################################
+
+            ################################################################################
+            #Call Mitsuba and delete temp files#############################################
+            ################################################################################
+
+            # os.chdir(cwd)
+            projectDir = cwd
+            dirList = re.split(r'/', projectDir)
+            mayaDir = ""
+
+            for i in range(len(dirList)-2):
+                mayaDir+=dirList[i]+"/"
+
+            version = cmds.about(v=True).replace(" ", "-")
+
+            pluginDir = mayaDir + version + "/plug-ins"
+            mtsDir = pluginDir + "/mitsuba"
+
+            os.chdir(mtsDir)
+            imageName = projectDir + "/images/"
+            imagePrefix = cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
+            imageName+=imagePrefix + str(i).zfill(3) +".png"
+
+            os.system(mtsDir+"/mitsuba.exe " + outFileName + " -o " + imageName)
+
+            #Delete all of the temp file we just made
+            os.chdir(projectDir+"/scenes")
+            os.remove(outFileName)
+            for obj in objFiles:
+                os.remove(obj)
+
+            global renderedImage
+            cmds.image(renderedImage, edit=True, image=imageName)
+            showRenderWindow()
 
         ################################################################################
         ################################################################################
@@ -1734,7 +1816,6 @@ def changeSampler(self):
             cmds.frameLayout(frame, edit=True, visible=False) 
 
 def gui():
-    print "gui god"
     global topLevel
     topLevel = cmds.menu( l="Mitsuba", p="MayaWindow", to=True)
     item = cmds.menuItem( p=topLevel, label='Render', c=showRenderSettings )

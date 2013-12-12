@@ -20,14 +20,11 @@ class coating(OpenMayaMPx.MPxNode):
                 mOutColor = OpenMaya.MObject()
 
         def compute(self, plug, block):
-                if plug == coating.mOutColor:
-                        print "out color"
-                        resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
-                        
-                        color = block.inputValue( coating.mReflectance ).asFloatVector()
+                if plug == coating.mOutColor or plug.parent() == coating.mOutColor:
+                        color = block.inputValue( coating.mBSDF ).asFloatVector()
 
                         outColorHandle = block.outputValue( coating.mOutColor )
-                        outColorHandle.setMFloatVector(resultColor)
+                        outColorHandle.setMFloatVector(color)
                         outColorHandle.setClean()
                 else:
                         return OpenMaya.kUnknownParameter
@@ -101,7 +98,8 @@ def nodeInitializer():
                 raise
 
         try:
-                z=1
+                coating.attributeAffects(coating.mBSDF, coating.mOutColor)
+                # print "attr affects"
         except:
                 sys.stderr.write("Failed in setting attributeAffects\n")
                 raise

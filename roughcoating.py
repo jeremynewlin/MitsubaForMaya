@@ -23,14 +23,11 @@ class roughcoating(OpenMayaMPx.MPxNode):
                 mOutColor = OpenMaya.MObject()
 
         def compute(self, plug, block):
-                if plug == roughcoating.mOutColor:
-                        print "out color"
-                        resultColor = OpenMaya.MFloatVector(0.0,0.0,0.0)
-                        
-                        color = block.inputValue( roughcoating.mReflectance ).asFloatVector()
+                if plug == roughcoating.mOutColor or plug.parent() == roughcoating.mOutColor:
+                        color = block.inputValue( roughcoating.mBSDF ).asFloatVector()
 
                         outColorHandle = block.outputValue( roughcoating.mOutColor )
-                        outColorHandle.setMFloatVector(resultColor)
+                        outColorHandle.setMFloatVector(color)
                         outColorHandle.setClean()
                 else:
                         return OpenMaya.kUnknownParameter
@@ -123,7 +120,7 @@ def nodeInitializer():
                 raise
 
         try:
-                z=1
+                roughcoating.attributeAffects(roughcoating.mBSDF, roughcoating.mOutColor)
         except:
                 sys.stderr.write("Failed in setting attributeAffects\n")
                 raise
