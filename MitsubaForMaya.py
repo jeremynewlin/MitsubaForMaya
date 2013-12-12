@@ -114,9 +114,28 @@ def writeShader(material, materialName, outFile, tabbedSpace):
         outFile.write(tabbedSpace + " </bsdf>\n")
 
     elif matType=="MitsubaDiffuseShader":
-        reflectance = cmds.getAttr(material+".reflectance")
         outFile.write(tabbedSpace + " <bsdf type=\"diffuse\" id=\"" + materialName + "\">\n")
-        outFile.write(tabbedSpace + "     <srgb name=\"reflectance\" value=\"" + str(reflectance[0][0]) + " " + str(reflectance[0][1]) + " " + str(reflectance[0][2]) + "\"/>\n")
+
+        #texture
+        hasFile = False
+        fileTexture = ""
+        connections = cmds.listConnections(material, connections=True)
+        for i in range(len(connections)):
+            if i%2==1:
+                connection = connections[i]
+                connectionType = cmds.nodeType(connection)
+                if connectionType == "file" and connections[i-1]==material+".reflectance":
+                    fileTexture = cmds.getAttr(connection+".fileTextureName")
+                    hasFile=True
+
+        if hasFile:
+            outFile.write(tabbedSpace + "     <texture type=\"bitmap\" name=\"reflectance\">\n")
+            outFile.write(tabbedSpace + "         <string name=\"filename\" value=\"" + fileTexture + "\"/>")
+            outFile.write(tabbedSpace + "     </texture>\n")
+        else:
+            reflectance = cmds.getAttr(material+".reflectance")
+            outFile.write(tabbedSpace + "     <srgb name=\"reflectance\" value=\"" + str(reflectance[0][0]) + " " + str(reflectance[0][1]) + " " + str(reflectance[0][2]) + "\"/>\n")
+
         outFile.write(tabbedSpace + " </bsdf>\n")
 
     elif matType=="MitsubaMaskShader":
