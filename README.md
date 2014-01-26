@@ -1,7 +1,7 @@
 MitsubaForMaya
 ==============
 
-A Maya plugin for the Mitsuba rendering engine.  This README/guide is currently under construction, but should be reasonably complete soon.
+A Maya plugin for the Mitsuba rendering engine.
 
 While this tool is still in progress, it is functional for many common features found in Mitsuba.  The order that I incorporate them is arbitrarily what I need to use as times goes on.
 
@@ -17,6 +17,8 @@ Installation
 4. Download Mitsuba here, and extract it to the same directory from step 1.  Rename the folder you extracted to "mitsuba".
 
 5. Open Maya and load "MitsubaForMaya.py" through the normal plug-in load screen.
+
+6. Open the Render Settings window, and select Mitsuba from the drop down menu.  ****VERY IMPORTANT**** - make sure you click over to the "Mitsuba Common" tab before you render anything.  There is a problem with the render UI and it will not render unless you do this.
 
 Usage
 =====
