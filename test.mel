@@ -1,0 +1,293 @@
+global proc changeIntegrator(){
+	global string $children[];
+	string $selectedIntegrator = `optionMenu -q -value $children[0]`;
+	for($i=1;$i<13;++$i) {
+		string $current = `frameLayout -q -label $children[$i]`;
+		if ($selectedIntegrator == $current){
+			string $activeIntegrator = $children[$i];
+			frameLayout -edit -visible true $children[$i];
+		}
+		else{
+			frameLayout -edit -visible false $children[$i];
+		}
+	}
+}
+
+global proc createIntegratorFrames(){
+	frameLayout -label "Ambient Occlusion" -cll true -visible false aoFrame;
+	intFieldGrp -numberOfFields 1 -label "shadingSamples" -value1 1;
+	checkBox -label "Use automatic ray length";
+	floatFieldGrp -numberOfFields 1 -label "rayLength" -value1 1;
+	setParent "..";
+
+	frameLayout -label "Direct Illumination" -cll true -visible false diFrame;
+	intFieldGrp -numberOfFields 1 -label "shadingSamples" -value1 1;
+	checkBox -label "Use emitter and bsdf specific samplers";
+	intFieldGrp -numberOfFields 1 -label "emitterSamples" -value1 1;
+	intFieldGrp -numberOfFields 1 -label "bsdfSamples" -value1 1;
+	checkBox -label "strictNormals";
+	checkBox -label "hideEmitters";
+	setParent "..";
+
+	frameLayout -label "Path Tracer" -cll true pathFrame;
+	checkBox -label "Use infinite depth" -value true;
+	intFieldGrp -numberOfFields 1 -label "maxDepth" -value1 1 pathMaxDepth;
+	intFieldGrp -numberOfFields 1 -label "rrDepth" -value1 1;
+	checkBox -label "strictNormals";
+	checkBox -label "hideEmitters";
+	setParent "..";
+
+	frameLayout -label "Simple Volumetric Path Tracer" -cll true -visible false volpath_simpleFrame;
+	checkBox -label "Use infinite depth" -value true;
+	intFieldGrp -numberOfFields 1 -label "maxDepth" -value1 1;
+	intFieldGrp -numberOfFields 1 -label "rrDepth" -value1 1;
+	checkBox -label "strictNormals";
+	checkBox -label "hideEmitters";
+	setParent "..";
+
+	frameLayout -label "Volumetric Path Tracer" -cll true -visible false volpathFrame;
+	checkBox -label "Use infinite depth" -value true;
+	intFieldGrp -numberOfFields 1 -label "maxDepth" -value1 1;
+	intFieldGrp -numberOfFields 1 -label "rrDepth" -value1 1;
+	checkBox -label "strictNormals";
+	checkBox -label "hideEmitters";
+	setParent "..";
+
+	frameLayout -label "Bidirectional Path Tracer" -cll true -visible false bdptFrame;
+	checkBox -label "Use infinite depth" -value true;
+	intFieldGrp -numberOfFields 1 -label "maxDepth" -value1 1;
+	checkBox -label "lightImage";
+	checkBox -label "sampleDirect";
+	intFieldGrp -numberOfFields 1 -label "rrDepth" -value1 1;
+	setParent "..";
+
+	frameLayout -label "Photon Map" -cll true -visible false photonmapperFrame;
+	intFieldGrp -numberOfFields 1 -label "directSamples" -value1 16;
+	intFieldGrp -numberOfFields 1 -label "glossySamples" -value1 32;
+	checkBox -label "Use infinite depth" -value true;
+	intFieldGrp -numberOfFields 1 -label "maxDepth" -value1 1;
+	intFieldGrp -numberOfFields 1 -label "globalPhotons" -value1 250000;
+	intFieldGrp -numberOfFields 1 -label "causticPhotons" -value1 250000;
+	intFieldGrp -numberOfFields 1 -label "volumePhotons" -value1 250000;
+	floatFieldGrp -numberOfFields 1 -label "globalLookupRadius" -value1 0.05;
+	floatFieldGrp -numberOfFields 1 -label "causticLookupRadius" -value1 0.05;
+	intFieldGrp -numberOfFields 1 -label "lookupSize" -value1 120;
+	checkBox -label "Use automatic granularity";
+	intFieldGrp -numberOfFields 1 -label "granularity" -value1 0;
+	checkBox -label "hideEmitters";
+	intFieldGrp -numberOfFields 1 -label "rrDepth" -value1 1;
+	setParent "..";
+
+	frameLayout -label "Progressive Photon Map" -cll true -visible false ppmFrame;
+	checkBox -label "Use infinite depth" -value true;
+	intFieldGrp -numberOfFields 1 -label "maxDepth" -value1 1;
+	intFieldGrp -numberOfFields 1 -label "photonCount" -value1 250000;
+	checkBox -label "Automatically decide initialRadius";
+	floatFieldGrp -numberOfFields 1 -label "initialRadius" -value1 0.0;
+	floatFieldGrp -numberOfFields 1 -label "alpha" -value1 0.7;
+	checkBox -label "Use automatic granularity";
+	intFieldGrp -numberOfFields 1 -label "granularity" -value1 0;
+	checkBox -label "hideEmitters";
+	intFieldGrp -numberOfFields 1 -label "rrDepth" -value1 1;
+	checkBox -label "Use infinite maxPasses";
+	intFieldGrp -numberOfFields 1 -label "maxPasses" -value1 1;
+	setParent "..";
+
+	frameLayout -label "Stochastic Progressive Photon Map" -cll true -visible false sppmFrame;
+	checkBox -label "Use infinite depth" -value true;
+	intFieldGrp -numberOfFields 1 -label "maxDepth" -value1 1;
+	intFieldGrp -numberOfFields 1 -label "photonCount" -value1 250000;
+	checkBox -label "Automatically decide initialRadius";
+	floatFieldGrp -numberOfFields 1 -label "initialRadius" -value1 0.0;
+	floatFieldGrp -numberOfFields 1 -label "alpha" -value1 0.7;
+	checkBox -label "Use automatic granularity";
+	intFieldGrp -numberOfFields 1 -label "granularity" -value1 0;
+	checkBox -label "hideEmitters";
+	intFieldGrp -numberOfFields 1 -label "rrDepth" -value1 1;
+	checkBox -label "Use infinite maxPasses";
+	intFieldGrp -numberOfFields 1 -label "maxPasses" -value1 1;
+	setParent "..";
+
+	frameLayout -label "Primary Sample Space Metropolis Light Transport" -cll true -visible false pssmltFrame;
+	checkBox -label "bidirectional";
+	checkBox -label "Use infinite depth" -value true;
+	intFieldGrp -numberOfFields 1 -label "maxDepth" -value1 1;
+	checkBox -label "Use automatic direct samples";
+	intFieldGrp -numberOfFields 1 -label "directSamples" -value1 16;
+	intFieldGrp -numberOfFields 1 -label "luminanceSamples" -value1 100000;
+	checkBox -label "twoStage" -value false;
+	checkBox -label "hideEmitters" -value true;
+	intFieldGrp -numberOfFields 1 -label "rrDepth" -value1 5;
+	floatFieldGrp -numberOfFields 1 -label "pLarge" -value1 0.3;
+	setParent "..";
+
+	frameLayout -label "Path Space Metropolis Light Transport" -cll true -visible false psmltFrame;
+	checkBox -label "Use infinite depth" -value true;
+	intFieldGrp -numberOfFields 1 -label "maxDepth" -value1 1;
+	checkBox -label "Use automatic direct samples";
+	intFieldGrp -numberOfFields 1 -label "directSamples" -value1 16;
+	intFieldGrp -numberOfFields 1 -label "luminanceSamples" -value1 100000;
+	checkBox -label "twoStage" -value false;
+	checkBox -label "bidirectionalMutation" -value true;
+	checkBox -label "lensPerturbation" -value true;
+	checkBox -label "multiChainPerturbation" -value true;
+	checkBox -label "causticPerturbation" -value true;
+	checkBox -label "manifoldPerturbation" -value false;
+	checkBox -label "hideEmitters" -value true;
+	floatFieldGrp -numberOfFields 1 -label "lambda" -value1 0.3;
+	setParent "..";
+
+	frameLayout -label "Energy Redistribution Path Tracer" -cll true -visible false erptFrame;
+	checkBox -label "Use infinite depth" -value true;
+	intFieldGrp -numberOfFields 1 -label "maxDepth" -value1 1;
+	floatFieldGrp -numberOfFields 1 -label "numChains" -value1 1.0;
+	checkBox -label "Enable max chains" -value false;
+	floatFieldGrp -numberOfFields 1 -label "maxChains" -value1 1.0;
+	checkBox -label "Use automatic direct samples" -value false;
+	intFieldGrp -numberOfFields 1 -label "directSamples" -value1 16;
+	checkBox -label "lensPerturbation" -value true;
+	checkBox -label "multiChainPerturbation" -value true;
+	checkBox -label "causticPerturbation" -value true;
+	checkBox -label "manifoldPerturbation" -value false;
+	checkBox -label "hideEmitters" -value true;
+	floatFieldGrp -numberOfFields 1 -label "lambda" -value1 50;
+	setParent "..";
+
+	frameLayout -label "Adjoint Particle Tracer" -cll true -visible false ptracerFrame;
+	checkBox -label "Use infinite depth" -value true;
+	intFieldGrp -numberOfFields 1 -label "maxDepth" -value1 1;
+	intFieldGrp -numberOfFields 1 -label "rrDepth" -value1 5;
+	intFieldGrp -numberOfFields 1 -label "granularity" -value1 200000;
+	checkBox -label "bruteForce" -value false;
+	checkBox -label "hideEmitters" -value true;
+	setParent "..";
+}
+
+global proc createSamplerFrame(){
+	frameLayout -label "Independent Sampler" -cll false -visible true;
+	intFieldGrp -numberOfFields 1 -label "sampleCount" -value1 4;
+	setParent "..";
+
+	frameLayout -label "Stratified Sampler" -cll true -visible false;
+	intFieldGrp -numberOfFields 1 -label "sampleCount" -value1 4;
+	intFieldGrp -numberOfFields 1 -label "dimension" -value1 4;
+	setParent "..";
+
+	frameLayout -label "Low Discrepancy Sampler" -cll true -visible false;
+	intFieldGrp -numberOfFields 1 -label "sampleCount" -value1 4;
+	intFieldGrp -numberOfFields 1 -label "dimension" -value1 4;
+	setParent "..";
+
+	frameLayout -label "Halton QMC Sampler" -cll true -visible false;
+	intFieldGrp -numberOfFields 1 -label "sampleCount" -value1 4;
+	intFieldGrp -numberOfFields 1 -label "scramble" -value1 0;
+	setParent "..";
+
+	frameLayout -label "Hammersley QMC Sampler" -cll true -visible false;
+	intFieldGrp -numberOfFields 1 -label "sampleCount" -value1 4;
+	intFieldGrp -numberOfFields 1 -label "scramble" -value1 0;
+	setParent "..";
+
+	frameLayout -label "Sobol QMC Sampler" -cll true -visible false;
+	intFieldGrp -numberOfFields 1 -label "sampleCount" -value1 4;
+	intFieldGrp -numberOfFields 1 -label "scramble" -value1 0;
+	setParent "..";
+}
+
+global proc changeSampler(){
+	global string $children[];
+	string $selectedIntegrator = `optionMenu -q -value $children[14]`;
+	for($i=15;$i<21;++$i) {
+		string $current = `frameLayout -q -label $children[$i]`;
+		if ($selectedIntegrator == $current){
+			frameLayout -edit -visible true $children[$i];
+		}
+		else{
+			frameLayout -edit -visible false $children[$i];
+		}
+	}
+}
+
+global proc mtsSettings(){
+    columnLayout -adjustableColumn true renderSettingsLayout;
+
+    	optionMenu -label "Integrator" -changeCommand "changeIntegrator" integrator;
+    		menuItem -label "Ambient Occlusion";
+    		menuItem -label "Direct Illumination";
+		    menuItem -label "Path Tracer";
+		    menuItem -label "Volumetric Path Tracer";
+		    menuItem -label "Simple Volumetric Path Tracer";
+		    menuItem -label "Bidirectional Path Tracer";
+		    menuItem -label "Photon Map";
+		    menuItem -label "Progressive Photon Map";
+		    menuItem -label "Stochastic Progressive Photon Map";
+		    menuItem -label "Primary Sample Space Metropolis Light Transport";
+		    menuItem -label "Path Space Metropolis Light Transport";
+		    menuItem -label "Energy Redistribution Path Tracer";
+		    menuItem -label "Adjoint Particle Tracer";
+		    menuItem -label "Virtual Point Lights";
+
+		createIntegratorFrames();
+		optionMenu -edit -select 3 integrator;
+
+		optionMenu -label "Image Sampler" -changeCommand "changeSampler" sampler;
+    		menuItem -label "Independent Sampler";
+		    menuItem -label "Stratified Sampler";
+		    menuItem -label "Low Discrepancy Sampler";
+		    menuItem -label "Halton QMC Sampler";
+		    menuItem -label "Hammersley QMC Sampler";
+		    menuItem -label "Sobol QMC Sampler";
+
+		createSamplerFrame();
+		optionMenu -edit -select 1 sampler;
+
+		optionMenu -label "Film Reconstruction Filter" rfilteMenu;
+			menuItem -label "Box filter";
+			menuItem -label "Tent filter";
+			menuItem -label "Gaussian filter";
+			menuItem -label "Mitchell-Netravali filter";
+			menuItem -label "Catmull-Rom filter";
+			menuItem -label "Lanczos filter";
+
+
+	global string $children[];
+	$children = `columnLayout -q -childArray renderSettingsLayout`;
+
+	global string $integratorFrames[13];
+	for($i=0;$i<12;++$i) {
+		$integratorFrames[$i] = $children[$i+1];
+	}
+
+	global string $samplerFrames[6];
+	for($i=0;$i<6;++$i) {
+		$samplerFrames[$i] = $children[$i+15];
+	}
+
+}
+
+global proc mtsSettingsUpdate(){
+    print "update";
+}
+
+global proc string getRenderWindowPanel() { 
+     global string $renderPanel; 
+     global string $renderPanels[];
+     $renderPanels = `getPanel -scriptType "renderWindowPanel"`; 
+
+     if( size($renderPanels) == 0 ) 
+     { 
+         $renderPanel = `scriptedPanel -type "renderWindowPanel" -unParent`; 
+         scriptedPanel -e -label `interToUI $renderPanel` $renderPanel; 
+     } 
+     else 
+     { 
+         $renderPanel = $renderPanels[0]; 
+     } 
+
+     return $renderPanel; 
+}
+
+global proc showRender(string $fileName){
+	string $name = getRenderWindowPanel();
+	renderWindowEditor -edit -loadImage $fileName $name;
+}

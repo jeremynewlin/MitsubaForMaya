@@ -3,6 +3,7 @@ import re
 import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
 import maya.cmds as cmds
+import maya.mel as mel
 
 kPluginCmdName = "mitsuba"
 
@@ -331,7 +332,10 @@ Write the appropriate integrator
 def writeIntegrator(outFile):
     #Write the integrator########################################################################
     global integrator
+    integratorFromMel = mel.eval("$temp=$children")
+    integrator = integratorFromMel[0]
     global integratorFrames
+    integratorFrames = mel.eval("$temp=$integratorFrames")
     activeIntegrator = cmds.optionMenu(integrator, query=True, value=True)
     activeSettings = integratorFrames[0]
 
@@ -893,6 +897,10 @@ def writeSampler(outFile):
     global samplerFrames
     global sampler
 
+    samplerFromMel = mel.eval("$temp=$children")
+    sampler = samplerFromMel[14]
+    samplerFrames = mel.eval("$temp=$samplerFrames")
+
     activeSampler = cmds.optionMenu(sampler, query=True, value=True)
     activeSettings = samplerFrames[0]
 
@@ -1030,6 +1038,8 @@ def writeSensor(outFile):
 
     #Filter
     global rfilter
+    rfilterFromMel = mel.eval("$temp=$children")
+    rfilter = rfilterFromMel[21]
     rfilterValue = cmds.optionMenu(rfilter, query=True, value=True)
     rfilterString = ""
     if rfilterValue=="Box_filter" or rfilterValue=="Box filter":
@@ -1385,12 +1395,15 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
 
             version = cmds.about(v=True).replace(" ", "-")
 
-            pluginDir = mayaDir + version + "/plug-ins"
+            pluginDir = mayaDir + version + "-x64/plug-ins"
             mtsDir = pluginDir + "/mitsuba"
 
+            #print mtsDir
             os.chdir(mtsDir)
             imageName = projectDir + "/images/"
             imagePrefix = cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
+            if imagePrefix is None:
+                imagePrefix = "tempRender"
             imageName+=imagePrefix + str(i).zfill(3) +".png"
 
             os.system(mtsDir+"/mitsuba.exe " + outFileName + " -o " + imageName)
@@ -1401,9 +1414,7 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
             for obj in objFiles:
                 os.remove(obj)
 
-            global renderedImage
-            cmds.image(renderedImage, edit=True, image=imageName)
-            showRenderWindow()
+            mel.eval("showRender(\"" + imageName + "\")")
 
         ################################################################################
         ################################################################################
@@ -1425,31 +1436,35 @@ def cmdCreator():
 # Initialize the script plug-in
 def initializePlugin(mobject):
     mplugin = OpenMayaMPx.MFnPlugin(mobject)
-    # cmds.loadPlugin("diffuse.py")
-    # cmds.loadPlugin("dielectric.py")
-    # cmds.loadPlugin("twosided.py")
-    # cmds.loadPlugin("sampler.py")
-    # cmds.loadPlugin("mask.py")
-    # cmds.loadPlugin("mixturebsdf.py")
-    # cmds.loadPlugin("bump.py")
-    # cmds.loadPlugin("roughplastic.py")
-    # cmds.loadPlugin("roughcoating.py")
-    # cmds.loadPlugin("coating.py")
-    # cmds.loadPlugin("difftrans.py")
-    # cmds.loadPlugin("ward.py")
-    # cmds.loadPlugin("phong.py")
-    # cmds.loadPlugin("roughdiffuse.py")
-    # cmds.loadPlugin("roughdielectric.py")
-    # cmds.loadPlugin("roughconductor.py")
-    # cmds.loadPlugin("plastic.py")
-    # cmds.loadPlugin("homogeneous.py")
-    # cmds.loadPlugin("conductor.py")
-    # cmds.loadPlugin("thindielectric.py")
-    # cmds.loadPlugin("sunsky.py")
-    # cmds.loadPlugin("envmap.py")
-    gui()
+    cmds.loadPlugin("diffuse.py")
+    cmds.loadPlugin("dielectric.py")
+    cmds.loadPlugin("twosided.py")
+    cmds.loadPlugin("mask.py")
+    cmds.loadPlugin("mixturebsdf.py")
+    cmds.loadPlugin("bump.py")
+    cmds.loadPlugin("roughplastic.py")
+    cmds.loadPlugin("roughcoating.py")
+    cmds.loadPlugin("coating.py")
+    cmds.loadPlugin("difftrans.py")
+    cmds.loadPlugin("ward.py")
+    cmds.loadPlugin("phong.py")
+    cmds.loadPlugin("roughdiffuse.py")
+    cmds.loadPlugin("roughdielectric.py")
+    cmds.loadPlugin("roughconductor.py")
+    cmds.loadPlugin("plastic.py")
+    cmds.loadPlugin("homogeneous.py")
+    cmds.loadPlugin("conductor.py")
+    cmds.loadPlugin("thindielectric.py")
+    cmds.loadPlugin("sunsky.py")
+    cmds.loadPlugin("envmap.py")
     try:
         mplugin.registerCommand( kPluginCmdName, cmdCreator )
+        mel.eval('source \"C:/Users/jmn236/Documents/maya/2014-x64/plug-ins/test.mel\";')
+        cmds.renderer("Mitsuba", rendererUIName="Mitsuba")
+        cmds.renderer( "Mitsuba", edit=True, addGlobalsNode="defaultRenderGlobals" )
+        cmds.renderer("Mitsuba", edit=True, addGlobalsTab=("Common", "createMayaSoftwareCommonGlobalsTab","updateMayaSoftwareCommonGlobalsTab"))
+        cmds.renderer("Mitsuba", edit=True, addGlobalsTab=("Mitsuba Common", "mtsSettings", "mtsSettingsUpdate"))
+        cmds.renderer("Mitsuba", edit=True, renderProcedure="mitsuba")
     except:
         sys.stderr.write( "Failed to register command: %s\n" % kPluginCmdName )
         raise
@@ -1457,29 +1472,28 @@ def initializePlugin(mobject):
 # Uninitialize the script plug-in
 def uninitializePlugin(mobject):
     mplugin = OpenMayaMPx.MFnPlugin(mobject)
-    # cmds.unloadPlugin("diffuse.py")
-    # cmds.unloadPlugin("dielectric.py")
-    # cmds.unloadPlugin("twosided.py")
-    # cmds.unloadPlugin("sampler.py")
-    # cmds.unloadPlugin("mask.py")
-    # cmds.unloadPlugin("mixturebsdf.py")
-    # cmds.unloadPlugin("bump.py")
-    # cmds.unloadPlugin("roughplastic.py")
-    # cmds.unloadPlugin("roughcoating.py")
-    # cmds.unloadPlugin("coating.py")
-    # cmds.unloadPlugin("difftrans.py")
-    # cmds.unloadPlugin("ward.py")
-    # cmds.unloadPlugin("phong.py")
-    # cmds.unloadPlugin("roughdiffuse.py")
-    # cmds.unloadPlugin("roughdielectric.py")
-    # cmds.unloadPlugin("roughconductor.py")
-    # cmds.unloadPlugin("plastic.py")
-    # cmds.unloadPlugin("homogeneous.py")
-    # cmds.unloadPlugin("conductor.py")
-    # cmds.unloadPlugin("thindielectric.py")
-    # cmds.unloadPlugin("sunsky.py")
-    # cmds.unloadPlugin("envmap.py")
-    deletegui()
+    cmds.unloadPlugin("diffuse.py")
+    cmds.unloadPlugin("dielectric.py")
+    cmds.unloadPlugin("twosided.py")
+    cmds.unloadPlugin("mask.py")
+    cmds.unloadPlugin("mixturebsdf.py")
+    cmds.unloadPlugin("bump.py")
+    cmds.unloadPlugin("roughplastic.py")
+    cmds.unloadPlugin("roughcoating.py")
+    cmds.unloadPlugin("coating.py")
+    cmds.unloadPlugin("difftrans.py")
+    cmds.unloadPlugin("ward.py")
+    cmds.unloadPlugin("phong.py")
+    cmds.unloadPlugin("roughdiffuse.py")
+    cmds.unloadPlugin("roughdielectric.py")
+    cmds.unloadPlugin("roughconductor.py")
+    cmds.unloadPlugin("plastic.py")
+    cmds.unloadPlugin("homogeneous.py")
+    cmds.unloadPlugin("conductor.py")
+    cmds.unloadPlugin("thindielectric.py")
+    cmds.unloadPlugin("sunsky.py")
+    cmds.unloadPlugin("envmap.py")
+    cmds.renderer("Mitsuba", edit=True, unregisterRenderer=True)
     try:
         mplugin.deregisterCommand( kPluginCmdName )
     except:
@@ -1833,17 +1847,3 @@ def changeSampler(self):
             cmds.frameLayout(frame, edit=True, visible=True)
         else:
             cmds.frameLayout(frame, edit=True, visible=False) 
-
-def gui():
-    global topLevel
-    topLevel = cmds.menu( l="Mitsuba", p="MayaWindow", to=True)
-    item = cmds.menuItem( p=topLevel, label='Render', c=showRenderSettings )
-    item = cmds.menuItem( p=topLevel, label='Render Window', c=showRenderWindowCC )
-    createRenderSettings()
-    createRenderWindow()
-
-
-def deletegui():
-    cmds.deleteUI( topLevel )
-    cmds.deleteUI( renderSettingsWindow )
-    cmds.deleteUI( renderWindow )
