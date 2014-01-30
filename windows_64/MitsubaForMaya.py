@@ -893,7 +893,7 @@ def writeIntegrator(outFile):
 '''
 Write image sample generator
 '''
-def writeSampler(outFile):
+def writeSampler(outFile, frameNumber):
     global samplerFrames
     global sampler
 
@@ -943,6 +943,7 @@ def writeSampler(outFile):
         outFile.write("             <integer name=\"sampleCount\" value=\"" + str(sampleCount) + "\"/>\n")
 
         scramble = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
+        scramble = frameNumber
         outFile.write("             <integer name=\"scramble\" value=\"" + str(scramble) + "\"/>\n")
 
     elif activeSampler=="Hammersley_QMC_Sampler" or activeSampler=="Hammersley QMC Sampler":
@@ -953,6 +954,7 @@ def writeSampler(outFile):
         outFile.write("             <integer name=\"sampleCount\" value=\"" + str(sampleCount) + "\"/>\n")
 
         scramble = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
+        scramble = frameNumber
         outFile.write("             <integer name=\"scramble\" value=\"" + str(scramble) + "\"/>\n")
 
     elif activeSampler=="Sobol_QMC_Sampler" or activeSampler=="Sobol QMC Sampler":
@@ -963,6 +965,7 @@ def writeSampler(outFile):
         outFile.write("             <integer name=\"sampleCount\" value=\"" + str(sampleCount) + "\"/>\n")
 
         scramble = cmds.intFieldGrp(samplerSettings[1], query=True, value1=True)
+        scramble = frameNumber
         outFile.write("             <integer name=\"scramble\" value=\"" + str(scramble) + "\"/>\n")
 
     outFile.write("         </sampler>\n")
@@ -971,7 +974,7 @@ def writeSampler(outFile):
 '''
 Write sensor, which include camera, image sampler, and film
 '''
-def writeSensor(outFile):
+def writeSensor(outFile, frameNumber):
     outFile.write(" <!-- Camera -->\n")
 
     cams = cmds.ls(type="camera")
@@ -1025,7 +1028,7 @@ def writeSensor(outFile):
     outFile.write("\n")
     
     #write sampler generator:
-    writeSampler(outFile)
+    writeSampler(outFile, frameNumber)
 
     #Film
     outFile.write("     <film type=\"ldrfilm\">\n")
@@ -1275,7 +1278,7 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
     # Invoked when the command is run.
     def doIt(self,argList):
         print "Rendering with Mitsuba..."
-        
+
         #Save the user's selection
         userSelection = cmds.ls(sl=True)
         
@@ -1291,12 +1294,12 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
         
         #Try to do animation jesus
         if cmds.getAttr("defaultRenderGlobals.animation"):
-            startFrame = cmds.getAttr("defaultRenderGlobals.startFrame")
-            endFrame = cmds.getAttr("defaultRenderGlobals.endFrame")
-            byFrame = cmds.getAttr("defaultRenderGlobals.byFrameStep")
+            startFrame = int(cmds.getAttr("defaultRenderGlobals.startFrame"))
+            endFrame = int(cmds.getAttr("defaultRenderGlobals.endFrame"))
+            byFrame = int(cmds.getAttr("defaultRenderGlobals.byFrameStep"))
             
             for frame in range(startFrame, endFrame+1, byFrame):
-
+                cmds.currentTime(frame)
                 print "Rendering frame " + str(frame)
         
                 outFile = open(outFileName, 'w+')
@@ -1310,14 +1313,14 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
                 writeIntegrator(outFile)
 
                 #Write camera, sampler, and film
-                writeSensor(outFile)
+                writeSensor(outFile, frame)
 
                 #Write lights
                 writeLights(outFile)
 
                 #Write geom and mats together since theyre inter-dependent
                 objFiles = writeGeometryAndMaterials(outFile, cwd)
-                    
+
                 outFile.write("\n")
                 outFile.write("</scene>")
                 outFile.close()
@@ -1339,19 +1342,20 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
 
                 version = cmds.about(v=True).replace(" ", "-")
 
-                pluginDir = mayaDir + version + "/plug-ins"
+                pluginDir = mayaDir + version + "-x64/plug-ins"
                 mtsDir = pluginDir + "/mitsuba"
 
+                print mtsDir
                 os.chdir(mtsDir)
                 imageName = projectDir + "/images/"
                 imagePrefix = cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
                 imageName+=imagePrefix + str(frame).zfill(3) +".png"
 
-                os.system(mtsDir+"/mitsuba.exe " + outFileName + " -o " + imageName)
+                os.system(mtsDir+"/mitsuba.exe " + outFileName + " -q -o " + imageName)
 
                 #Delete all of the temp file we just made
                 os.chdir(projectDir+"/scenes")
-                os.remove(outFileName)
+                #os.remove(outFileName)
                 for obj in objFiles:
                     os.remove(obj)
         else:
@@ -1398,7 +1402,7 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
             pluginDir = mayaDir + version + "-x64/plug-ins"
             mtsDir = pluginDir + "/mitsuba"
 
-            #print mtsDir
+            print mtsDir
             os.chdir(mtsDir)
             imageName = projectDir + "/images/"
             imagePrefix = cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
@@ -1406,7 +1410,7 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
                 imagePrefix = "tempRender"
             imageName+=imagePrefix + str(i).zfill(3) +".png"
 
-            os.system(mtsDir+"/mitsuba.exe " + outFileName + " -o " + imageName)
+            os.system(mtsDir+"/mitsuba.exe " + outFileName + " -q -o " + imageName)
 
             #Delete all of the temp file we just made
             os.chdir(projectDir+"/scenes")
@@ -1436,27 +1440,27 @@ def cmdCreator():
 # Initialize the script plug-in
 def initializePlugin(mobject):
     mplugin = OpenMayaMPx.MFnPlugin(mobject)
-    cmds.loadPlugin("diffuse.py")
-    cmds.loadPlugin("dielectric.py")
-    cmds.loadPlugin("twosided.py")
-    cmds.loadPlugin("mask.py")
-    cmds.loadPlugin("mixturebsdf.py")
-    cmds.loadPlugin("bump.py")
-    cmds.loadPlugin("roughplastic.py")
-    cmds.loadPlugin("roughcoating.py")
-    cmds.loadPlugin("coating.py")
-    cmds.loadPlugin("difftrans.py")
-    cmds.loadPlugin("ward.py")
-    cmds.loadPlugin("phong.py")
-    cmds.loadPlugin("roughdiffuse.py")
-    cmds.loadPlugin("roughdielectric.py")
-    cmds.loadPlugin("roughconductor.py")
-    cmds.loadPlugin("plastic.py")
-    cmds.loadPlugin("homogeneous.py")
-    cmds.loadPlugin("conductor.py")
-    cmds.loadPlugin("thindielectric.py")
-    cmds.loadPlugin("sunsky.py")
-    cmds.loadPlugin("envmap.py")
+    # cmds.loadPlugin("diffuse.py")
+    # cmds.loadPlugin("dielectric.py")
+    # cmds.loadPlugin("twosided.py")
+    # cmds.loadPlugin("mask.py")
+    # cmds.loadPlugin("mixturebsdf.py")
+    # cmds.loadPlugin("bump.py")
+    # cmds.loadPlugin("roughplastic.py")
+    # cmds.loadPlugin("roughcoating.py")
+    # cmds.loadPlugin("coating.py")
+    # cmds.loadPlugin("difftrans.py")
+    # cmds.loadPlugin("ward.py")
+    # cmds.loadPlugin("phong.py")
+    # cmds.loadPlugin("roughdiffuse.py")
+    # cmds.loadPlugin("roughdielectric.py")
+    # cmds.loadPlugin("roughconductor.py")
+    # cmds.loadPlugin("plastic.py")
+    # cmds.loadPlugin("homogeneous.py")
+    # cmds.loadPlugin("conductor.py")
+    # cmds.loadPlugin("thindielectric.py")
+    # cmds.loadPlugin("sunsky.py")
+    # cmds.loadPlugin("envmap.py")
     try:
         mplugin.registerCommand( kPluginCmdName, cmdCreator )
         mel.eval('source \"C:/Users/jmn236/Documents/maya/2014-x64/plug-ins/test.mel\";')
@@ -1465,6 +1469,7 @@ def initializePlugin(mobject):
         cmds.renderer("Mitsuba", edit=True, addGlobalsTab=("Common", "createMayaSoftwareCommonGlobalsTab","updateMayaSoftwareCommonGlobalsTab"))
         cmds.renderer("Mitsuba", edit=True, addGlobalsTab=("Mitsuba Common", "mtsSettings", "mtsSettingsUpdate"))
         cmds.renderer("Mitsuba", edit=True, renderProcedure="mitsuba")
+        #mel.eval("mtsSettings()")
     except:
         sys.stderr.write( "Failed to register command: %s\n" % kPluginCmdName )
         raise
@@ -1472,27 +1477,27 @@ def initializePlugin(mobject):
 # Uninitialize the script plug-in
 def uninitializePlugin(mobject):
     mplugin = OpenMayaMPx.MFnPlugin(mobject)
-    cmds.unloadPlugin("diffuse.py")
-    cmds.unloadPlugin("dielectric.py")
-    cmds.unloadPlugin("twosided.py")
-    cmds.unloadPlugin("mask.py")
-    cmds.unloadPlugin("mixturebsdf.py")
-    cmds.unloadPlugin("bump.py")
-    cmds.unloadPlugin("roughplastic.py")
-    cmds.unloadPlugin("roughcoating.py")
-    cmds.unloadPlugin("coating.py")
-    cmds.unloadPlugin("difftrans.py")
-    cmds.unloadPlugin("ward.py")
-    cmds.unloadPlugin("phong.py")
-    cmds.unloadPlugin("roughdiffuse.py")
-    cmds.unloadPlugin("roughdielectric.py")
-    cmds.unloadPlugin("roughconductor.py")
-    cmds.unloadPlugin("plastic.py")
-    cmds.unloadPlugin("homogeneous.py")
-    cmds.unloadPlugin("conductor.py")
-    cmds.unloadPlugin("thindielectric.py")
-    cmds.unloadPlugin("sunsky.py")
-    cmds.unloadPlugin("envmap.py")
+    # cmds.unloadPlugin("diffuse.py")
+    # cmds.unloadPlugin("dielectric.py")
+    # cmds.unloadPlugin("twosided.py")
+    # cmds.unloadPlugin("mask.py")
+    # cmds.unloadPlugin("mixturebsdf.py")
+    # cmds.unloadPlugin("bump.py")
+    # cmds.unloadPlugin("roughplastic.py")
+    # cmds.unloadPlugin("roughcoating.py")
+    # cmds.unloadPlugin("coating.py")
+    # cmds.unloadPlugin("difftrans.py")
+    # cmds.unloadPlugin("ward.py")
+    # cmds.unloadPlugin("phong.py")
+    # cmds.unloadPlugin("roughdiffuse.py")
+    # cmds.unloadPlugin("roughdielectric.py")
+    # cmds.unloadPlugin("roughconductor.py")
+    # cmds.unloadPlugin("plastic.py")
+    # cmds.unloadPlugin("homogeneous.py")
+    # cmds.unloadPlugin("conductor.py")
+    # cmds.unloadPlugin("thindielectric.py")
+    # cmds.unloadPlugin("sunsky.py")
+    # cmds.unloadPlugin("envmap.py")
     cmds.renderer("Mitsuba", edit=True, unregisterRenderer=True)
     try:
         mplugin.deregisterCommand( kPluginCmdName )
