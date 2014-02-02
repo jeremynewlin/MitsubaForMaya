@@ -4,6 +4,8 @@ import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
 import maya.cmds as cmds
 import maya.mel as mel
+import getpass
+import struct
 
 kPluginCmdName = "mitsuba"
 
@@ -17,8 +19,10 @@ Returns the surfaceShader node for a piece of geometry (geom)
 def getShader(geom):
     shapeNode = cmds.listRelatives(geom, children=True, shapes=True)[0]
     sg = cmds.listConnections(shapeNode, type="shadingEngine")[0]
-    shader = cmds.listConnections(sg+".surfaceShader")[0]
-    return shader
+    shader = cmds.listConnections(sg+".surfaceShader")
+    if shader is None:
+        shader = cmds.listConnections(sg+".volumeShader")
+    return shader[0]
 
 '''
 Writes a homogeneous medium to a Mitsuba scene file (outFile)
@@ -1263,10 +1267,145 @@ def writeGeometryAndMaterials(outFile, cwd):
                 writeMedium(medium, outFile, "    ")
 
             outFile.write("    </shape>\n\n")
+        elif cmds.nodeType(shader) == "MitsubaVolume":
+            output = cwd+"/scenes/"+geom+".obj"
+            cmds.select(geom)
+            objFiles.append(cmds.file(output, op=True, typ="OBJexport", options="groups=1;ptgroups=1;materials=0;smoothing=1;normals=1", exportSelected=True, force=True))
+            outFile.write("    <shape type=\"obj\">\n")
+            outFile.write("        <string name=\"filename\" value=\"" + geom + ".obj\"/>\n")
+
+            writeVolume(outFile, cwd, "    ", shader, geom)
+
+            outFile.write("    </shape>\n\n")
+            
 
     outFile.write("<!-- End of geometry -->")
     outFile.write("\n\n\n")
     return objFiles
+
+def getVtxPos(shapeNode):
+    vtxWorldPosition = []    # will contain positions un space of all object vertex
+    vtxIndexList = cmds.getAttr( shapeNode+".vrts", multiIndices=True )
+    for i in vtxIndexList :
+        curPointPosition = cmds.xform( str(shapeNode)+".pnts["+str(i)+"]", query=True, translation=True, worldSpace=True )    # [1.1269192869360154, 4.5408735275268555, 1.3387055339628269]
+        vtxWorldPosition.append( curPointPosition )
+    return vtxWorldPosition
+
+def writeVolume(outFile, cwd, tabbedSpace, material, geom):
+    #sourceFileName = "smoke_source\\text\\smoke_test_"
+    hasFile = False
+    fileTexture = ""
+    connections = cmds.listConnections(material, connections=True)
+    for i in range(len(connections)):
+        if i%2==1:
+            connection = connections[i]
+            connectionType = cmds.nodeType(connection)
+            if connectionType == "file" and connections[i-1]==material+".sourceFile":
+                inFileName = cmds.getAttr(connection+".fileTextureName")
+                hasFile=True
+
+    if not hasFile:
+        print "please supply a file for the mitsuba volume"
+        return
+
+    sourceFile = open(inFileName, 'r')
+
+    volFileName = cwd + "test.vol"
+    volFile = open(volFileName, 'wb+')
+
+    #grid dimensions
+    gd = cmds.getAttr(material+".gridDimensions")[0]
+    height = int(gd[0])
+    width  = int(gd[1])
+    depth  = int(gd[2])
+    #I only use color, but you could send data that had n components
+    chans  = 1
+
+    vtxPos = getVtxPos(geom)
+
+    maxV = [-1000,-1000,-1000]
+    minV = [ 1000, 1000, 1000]
+
+
+    for vtx in vtxPos:
+        if vtx[0] > maxV[0]:
+            maxV[0] = vtx[0]
+        elif vtx[0] < minV[0]:
+            minV[0] = vtx[0]
+        if vtx[1] > maxV[1]:
+            maxV[1] = vtx[1]
+        elif vtx[1] < minV[1]:
+            minV[1] = vtx[1]
+        if vtx[2] > maxV[2]:
+            maxV[2] = vtx[2]
+        elif vtx[2] < minV[2]:
+            minV[2] = vtx[2]
+    #Mitsuba requires you to define an AABB for the volume data
+    xmin = minV[0]
+    ymin = minV[1]
+    zmin = minV[2]
+    xmax = maxV[0]
+    ymax = maxV[1]
+    zmax = maxV[2]
+
+    #Pre-package the data from 563 data files to send to Mitsuba
+    data = [0 for i in range(int(depth*width*height*chans))]
+
+    for i in range(width):
+        for j in range(height):
+            for k in range(depth):
+                temp = sourceFile.readline()
+                tempFloat = 0
+                try:
+                    tempFloat = float(temp)
+                except:
+                    tempFloat = 0
+                data[((k*height+j)*width+i)] = tempFloat
+
+
+    #VOL
+    volFile.write('VOL')
+    #version number
+    volFile.write(struct.pack('<b', 3))
+
+    #encoding id
+    volFile.write(struct.pack('<i', 1))
+
+    #x,y,z dimensions
+    volFile.write(struct.pack('<i', height))
+    volFile.write(struct.pack('<i', width))
+    volFile.write(struct.pack('<i', depth))
+
+    #number of channels
+    volFile.write(struct.pack('<i', 1))
+
+    #AABB (xmin,ymin,zmin, xmax,ymax,zmax)
+    volFile.write(struct.pack('<f', xmin))
+    volFile.write(struct.pack('<f', ymin))
+    volFile.write(struct.pack('<f', zmin))
+
+    volFile.write(struct.pack('<f', xmax))
+    volFile.write(struct.pack('<f', ymax))
+    volFile.write(struct.pack('<f', zmax))
+
+    #Smoke densities
+    for i in range(depth*width*height*chans):
+        density = data[i]
+        volFile.write(struct.pack('<f', density))
+
+    volFile.close()
+    sourceFile.close()
+
+    outFile.write(tabbedSpace + "<medium type=\"heterogeneous\" name=\"interior\">\n")
+    outFile.write(tabbedSpace + "    <string name=\"method\" value=\"woodcock\"/>\n")
+    outFile.write(tabbedSpace + "    <volume name=\"density\" type=\"gridvolume\">\n")
+    outFile.write(tabbedSpace + "        <string name=\"filename\" value=\"" + volFileName + "\"/>\n")
+    outFile.write(tabbedSpace + "    </volume>\n")
+    outFile.write(tabbedSpace + "    <volume name=\"albedo\" type=\"constvolume\">\n")
+    outFile.write(tabbedSpace + "        <spectrum name=\"value\" value=\"0.9\"/>\n")
+    outFile.write(tabbedSpace + "    </volume>\n")
+    outFile.write(tabbedSpace + "</medium>\n")
+
 
 '''
 This registers a mel command to render with Mitsuba
@@ -1334,15 +1473,9 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
 
                 # os.chdir(cwd)
                 projectDir = cwd
-                dirList = re.split(r'/', projectDir)
-                mayaDir = ""
-
-                for i in range(len(dirList)-2):
-                    mayaDir+=dirList[i]+"/"
 
                 version = cmds.about(v=True).replace(" ", "-")
-
-                pluginDir = mayaDir + version + "-x64/plug-ins"
+                pluginDir = "C:/Users/"+getpass.getuser()+"/Documents/maya/"+version+"-x64/plug-ins"
                 mtsDir = pluginDir + "/mitsuba"
 
                 print mtsDir
@@ -1351,13 +1484,16 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
                 imagePrefix = cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
                 imageName+=imagePrefix + str(frame).zfill(3) +".png"
 
-                os.system(mtsDir+"/mitsuba.exe " + outFileName + " -q -o " + imageName)
+                print outFileName
+                print imageName
+
+                os.system(mtsDir+"/mitsuba.exe " + outFileName + " -o " + imageName)
 
                 #Delete all of the temp file we just made
-                os.chdir(projectDir+"/scenes")
+                #os.chdir(projectDir+"/scenes")
                 #os.remove(outFileName)
-                for obj in objFiles:
-                    os.remove(obj)
+                #for obj in objFiles:
+                #    os.remove(obj)
         else:
             outFile = open(outFileName, 'w+')
 
@@ -1370,7 +1506,7 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
             writeIntegrator(outFile)
 
             #Write camera, sampler, and film
-            writeSensor(outFile)
+            writeSensor(outFile, 0)
 
             #Write lights
             writeLights(outFile)
@@ -1391,31 +1527,27 @@ class mitsubaForMaya(OpenMayaMPx.MPxCommand):
 
             # os.chdir(cwd)
             projectDir = cwd
-            dirList = re.split(r'/', projectDir)
-            mayaDir = ""
-
-            for i in range(len(dirList)-2):
-                mayaDir+=dirList[i]+"/"
 
             version = cmds.about(v=True).replace(" ", "-")
-
-            pluginDir = mayaDir + version + "-x64/plug-ins"
-            mtsDir = pluginDir + "/mitsuba"
+            pluginDir = "C:/Users/"+getpass.getuser()+"/Documents/maya/"+version+"-x64/plug-ins"
+            mtsDir = pluginDir + "/mitsuba/"
 
             print mtsDir
+            os.chdir(os.getcwd())
             os.chdir(mtsDir)
             imageName = projectDir + "/images/"
             imagePrefix = cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
             if imagePrefix is None:
                 imagePrefix = "tempRender"
-            imageName+=imagePrefix + str(i).zfill(3) +".png"
+            imageName+=imagePrefix + ".png"
 
-            os.system(mtsDir+"/mitsuba.exe " + outFileName + " -q -o " + imageName)
+            os.system(mtsDir+"/mitsuba.exe " + outFileName + " -o " + imageName)
 
             #Delete all of the temp file we just made
             os.chdir(projectDir+"/scenes")
-            os.remove(outFileName)
+            #os.remove(outFileName)
             for obj in objFiles:
+                print obj
                 os.remove(obj)
 
             mel.eval("showRender(\"" + imageName + "\")")
